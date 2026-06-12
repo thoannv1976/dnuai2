@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import os
 
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -42,6 +43,12 @@ def create_app() -> FastAPI:
     # Seed rubric + timeline lần đầu
     get_rubric(app.state.store)
     get_timeline(app.state.store)
+
+    # SEED_DEMO=1: tự tạo tài khoản + hồ sơ demo khi khởi động (phục vụ deploy demo)
+    if os.environ.get("SEED_DEMO") == "1" and not app.state.store.all("users"):
+        from scripts.seed_demo import seed
+
+        seed(app.state.store, app.state.storage)
 
     @app.get("/")
     def root(request: Request):

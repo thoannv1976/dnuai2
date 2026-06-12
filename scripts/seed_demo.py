@@ -104,10 +104,8 @@ def make_docx(title: str, paragraphs: list[str]) -> bytes:
     return buf.getvalue()
 
 
-def main() -> None:
-    settings = get_settings()
-    store = create_store(settings)
-    storage = create_storage(settings)
+def seed(store, storage) -> None:
+    """Tạo người dùng demo + hồ sơ mẫu trên store/storage cho trước (idempotent)."""
     get_rubric(store)
 
     users_by_email = {}
@@ -166,6 +164,11 @@ def main() -> None:
                 "uploaded_at": now_vn().isoformat(),
             })
     print(f"+ hồ sơ mẫu GV001 ({sid}) với {len(GRADED_PARTS)} phần (sản phẩm + minh chứng docx)")
+
+
+def main() -> None:
+    settings = get_settings()
+    seed(create_store(settings), create_storage(settings))
     print("\nXong. Chạy: uvicorn app.main:app --reload  → http://localhost:8000 (đăng nhập tài khoản demo)")
 
 
