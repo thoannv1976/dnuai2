@@ -8,13 +8,13 @@
       Hệ thống đánh giá năng lực ứng dụng AI của giảng viên<br>Trường Đại học Đại Nam — 2026
     </p>
 
-    {% if settings.app_mode == 'gcp' %}
+    {% if settings.auth_mode == 'google' %}
       <a href="/auth/google"
          class="mt-8 w-full flex items-center justify-center gap-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg py-3 font-semibold">
         Đăng nhập bằng email DNU (Google)
       </a>
-      <p class="text-xs text-slate-400 mt-3 text-center">Chỉ chấp nhận email thuộc domain
-        {{ settings.allowed_email_domains | join(', ') }}</p>
+      <p class="text-xs text-slate-400 mt-3 text-center">Dành cho email trong danh sách của hệ thống
+        (giảng viên DNU dùng email @{{ settings.allowed_email_domains | join(', @') }})</p>
     {% else %}
       <form method="post" action="/login/dev" class="mt-6 space-y-3">
         <label class="block text-sm font-medium">Email (chế độ thử nghiệm)</label>

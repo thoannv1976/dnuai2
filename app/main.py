@@ -27,7 +27,7 @@ def create_app() -> FastAPI:
     app.state.store = create_store(settings)
     app.state.storage = create_storage(settings)
     templates = Jinja2Templates(directory=str(settings.base_dir / "app" / "templates"))
-    templates.env.globals.update(app_mode=settings.app_mode)
+    templates.env.globals.update(app_mode=settings.app_mode, auth_mode=settings.auth_mode)
     app.state.templates = templates
 
     app.mount("/static", StaticFiles(directory=str(settings.base_dir / "app" / "static")), name="static")
@@ -49,6 +49,22 @@ def create_app() -> FastAPI:
         from scripts.seed_demo import seed
 
         seed(app.state.store, app.state.storage)
+
+    # ADMIN_EMAILS: bảo đảm các email này là quản trị viên (tạo mới hoặc nâng quyền)
+    from app.config import ROLE_ADMIN as _ADMIN
+
+    for email in settings.admin_emails:
+        existing = app.state.store.find_one("users", email=email)
+        if existing:
+            if existing.get("role") != _ADMIN or not existing.get("active", True):
+                app.state.store.patch("users", existing["id"], {"role": _ADMIN, "active": True})
+                logging.getLogger("dnu").info("Nâng quyền quản trị: %s", email)
+        else:
+            app.state.store.add("users", {
+                "email": email, "ho_ten": email.split("@")[0], "ma_gv": "",
+                "khoa": "", "bo_mon": "", "role": _ADMIN, "active": True,
+            })
+            logging.getLogger("dnu").info("Tạo quản trị viên từ ADMIN_EMAILS: %s", email)
 
     @app.get("/")
     def root(request: Request):

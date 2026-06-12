@@ -82,7 +82,7 @@ def _login_ok(user: dict) -> RedirectResponse:
 def login_page(request: Request):
     settings = get_settings()
     demo_users = []
-    if settings.app_mode == "local":
+    if settings.auth_mode == "dev":
         demo_users = sorted(request.app.state.store.all("users"), key=lambda u: (u["role"], u.get("ma_gv", "")))
     return request.app.state.templates.TemplateResponse(
         request, "login.html",
@@ -92,7 +92,7 @@ def login_page(request: Request):
 
 @router.post("/login/dev")
 def login_dev(request: Request, email: str = Form(...)):
-    if get_settings().app_mode != "local":
+    if get_settings().auth_mode != "dev":
         raise HTTPException(404)
     user = request.app.state.store.find_one("users", email=email.strip().lower())
     if not user:
@@ -142,12 +142,18 @@ def google_callback(request: Request, code: str = ""):
         timeout=15,
     ).json()
     email = (info.get("email") or "").lower()
-    domain = email.split("@")[-1]
-    if settings.allowed_email_domains and domain not in settings.allowed_email_domains:
-        raise HTTPException(403, f"Chỉ chấp nhận email thuộc domain: {', '.join(settings.allowed_email_domains)}")
+    if not info.get("email_verified", False):
+        raise HTTPException(403, "Email Google chưa được xác minh")
+    # Quy tắc: đăng nhập được khi email CÓ TRONG danh sách người dùng do quản trị quản lý
+    # (domain DNU chỉ là gợi ý chọn tài khoản; admin có thể thêm email ngoài domain, vd tài khoản vận hành)
     user = request.app.state.store.find_one("users", email=email)
     if not user:
-        raise HTTPException(403, "Email của bạn chưa có trong danh sách giảng viên. Liên hệ quản trị viên.")
+        raise HTTPException(
+            403,
+            f"Email {email} chưa có trong danh sách người dùng của hệ thống. "
+            f"Giảng viên DNU dùng email @{settings.allowed_email_domains[0] if settings.allowed_email_domains else 'dainam.edu.vn'} "
+            "đã được quản trị viên import; nếu cần hỗ trợ hãy liên hệ Ban tổ chức.",
+        )
     return _login_ok(user)
 
 

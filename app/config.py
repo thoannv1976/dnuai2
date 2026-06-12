@@ -48,6 +48,15 @@ class Settings:
             d.strip() for d in os.environ.get("ALLOWED_EMAIL_DOMAINS", "dainam.edu.vn").split(",") if d.strip()
         ]
 
+        # Kiểu đăng nhập, tách khỏi kiểu hạ tầng: "dev" (chọn tài khoản, thử nghiệm)
+        # hoặc "google" (SSO). Mặc định theo APP_MODE.
+        self.auth_mode = os.environ.get("AUTH_MODE", "google" if self.app_mode == "gcp" else "dev")
+
+        # Bootstrap quản trị viên: các email này được tạo/nâng quyền admin khi khởi động
+        self.admin_emails = [
+            e.strip().lower() for e in os.environ.get("ADMIN_EMAILS", "").split(",") if e.strip()
+        ]
+
         # GCP
         self.gcs_bucket = os.environ.get("GCS_BUCKET", "")
         self.firestore_project = os.environ.get("GOOGLE_CLOUD_PROJECT", "")

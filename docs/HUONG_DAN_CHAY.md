@@ -66,7 +66,10 @@ Sau triển khai: vào **/admin/users** import danh sách giảng viên (CSV: `m
 | `GRADING_MODEL` | `claude-opus-4-8` | Model chấm điểm |
 | `GRADER` | tự động | Ép `mock` hoặc `claude` |
 | `DEADLINE` | `2026-06-30T17:00:00+07:00` | Hạn nộp (admin sửa được trong /admin/config) |
-| `ALLOWED_EMAIL_DOMAINS` | `dainam.edu.vn` | Domain email được phép đăng nhập SSO |
+| `AUTH_MODE` | theo APP_MODE | `dev` (chọn tài khoản — thử nghiệm) / `google` (SSO). Cho phép chạy Firestore/GCS nhưng vẫn đăng nhập thử nghiệm khi chưa có OAuth |
+| `ADMIN_EMAILS` | — | Danh sách email (phân cách dấu phẩy) được tự tạo/nâng quyền **quản trị viên** khi khởi động |
+| `SEED_DEMO` | — | `1`: tự tạo tài khoản + hồ sơ demo khi khởi động (chỉ khi chưa có người dùng) |
+| `ALLOWED_EMAIL_DOMAINS` | `dainam.edu.vn` | Gợi ý domain ở màn hình chọn tài khoản Google. Quy tắc đăng nhập SSO: email phải **có trong danh sách người dùng** của hệ thống |
 | `CRON_TOKEN` | dev | Token bảo vệ endpoint /tasks/cron |
 | `DATA_DIR` | `./data` | Thư mục dữ liệu (chế độ local) |
 

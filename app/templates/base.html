@@ -39,9 +39,9 @@
     </div>
   </div>
 </nav>
-{% if app_mode == 'local' %}
+{% if auth_mode == 'dev' %}
 <div class="bg-amber-100 text-amber-900 text-center text-xs py-1 no-print">
-  Chế độ thử nghiệm (local) — đăng nhập giả lập, email ghi log, dữ liệu lưu cục bộ
+  Chế độ thử nghiệm — đăng nhập giả lập đang bật{% if app_mode == 'local' %}, dữ liệu lưu cục bộ{% endif %}
 </div>
 {% endif %}
 <main class="max-w-6xl mx-auto px-4 py-6">
