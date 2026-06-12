@@ -21,10 +21,25 @@ Hệ thống tiếp nhận hồ sơ và **chấm điểm tự động bằng AI*
 | Xác thực | Google Workspace SSO (email DNU) · 3 vai trò: giảng viên / hội đồng / quản trị |
 | Triển khai | Docker · Google Cloud Run · Cloud Scheduler |
 
+## Chạy nhanh (demo cục bộ, không cần GCP)
+
+```bash
+pip install -r requirements.txt
+python scripts/seed_demo.py        # tạo tài khoản demo + hồ sơ mẫu
+uvicorn app.main:app --reload      # → http://localhost:8000
+```
+
+Đăng nhập `admin@dainam.edu.vn` → **Khóa ngay** → **Bắt đầu chấm** → đăng nhập `hoidong@dainam.edu.vn` thẩm định/phê duyệt → admin **Công bố** → đăng nhập `gv001@dainam.edu.vn` xem kết quả. Đặt `ANTHROPIC_API_KEY` để chấm bằng Claude thật (không có thì dùng bộ chấm mock cho demo).
+
+Kiểm thử: `pytest -q` (24 test) · Lint: `ruff check app tests scripts`
+
 ## Tài liệu
 
-- 📋 **[Kế hoạch xây dựng chi tiết](docs/KE_HOACH_XAY_DUNG.md)** — kiến trúc, mô hình dữ liệu, thiết kế engine chấm, lộ trình, rủi ro.
+- 📋 **[Kế hoạch xây dựng](docs/KE_HOACH_XAY_DUNG.md)** — kiến trúc, mô hình dữ liệu, thiết kế engine chấm, lộ trình, rủi ro.
+- 🚀 **[Hướng dẫn chạy & triển khai](docs/HUONG_DAN_CHAY.md)** — chạy local, deploy Cloud Run, biến môi trường, luồng nghiệp vụ.
 
 ## Trạng thái
 
-🟡 **Giai đoạn lập kế hoạch** — kế hoạch đã hoàn thành, chờ phê duyệt để bắt đầu Giai đoạn 0 (khung dự án). Mốc go-live: **22/6/2026**.
+🟢 **Hoàn thành các giai đoạn 0–5 (chế độ local đầy đủ chức năng):** nộp hồ sơ A–G, engine chấm Claude (2 lượt + trung vị, trừ minh chứng, đối chiếu Phần G), thẩm định + audit log, phản hồi 3 ngày, dashboard/báo cáo/hồ sơ năng lực, quản trị + cron nhắc hạn/khóa hồ sơ, Dockerfile + CI.
+
+⏭ **Còn lại (Giai đoạn 6 — production):** kích hoạt Firestore/GCS signed URL + Google SSO trên môi trường GCP thật, chấm thí điểm bằng Claude API thật để hiệu chỉnh prompt, kiểm thử tải. Mốc go-live: **22/6/2026**.

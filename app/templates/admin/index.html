@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}Quản trị — Vận hành{% endblock %}
+{% block content %}
+<h1 class="text-xl font-bold mb-4">Bảng điều khiển vận hành</h1>
+
+{% set q = request.query_params %}
+{% if q.get('locked') %}<div class="bg-emerald-50 border border-emerald-200 rounded-lg p-3 mb-4 text-sm">Đã khóa {{ q.get('locked') }} hồ sơ ({{ q.get('invalid') }} không hợp lệ).</div>{% endif %}
+{% if q.get('grading') %}<div class="bg-emerald-50 border border-emerald-200 rounded-lg p-3 mb-4 text-sm">Đã khởi động phiên chấm tự động — theo dõi trạng thái bên dưới.</div>{% endif %}
+{% if q.get('published') %}<div class="bg-emerald-50 border border-emerald-200 rounded-lg p-3 mb-4 text-sm">Đã công bố {{ q.get('published') }} hồ sơ và gửi email kết quả.</div>{% endif %}
+{% if q.get('reminded') %}<div class="bg-emerald-50 border border-emerald-200 rounded-lg p-3 mb-4 text-sm">Đã gửi {{ q.get('reminded') }} email nhắc hạn.</div>{% endif %}
+
+<div class="grid sm:grid-cols-4 gap-4 mb-6">
+  <div class="bg-white rounded-xl shadow p-4 text-center">
+    <p class="text-3xl font-extrabold text-orange-700">{{ counts.lecturers }}</p>
+    <p class="text-xs text-slate-400 uppercase mt-1">Giảng viên</p>
+  </div>
+  <div class="bg-white rounded-xl shadow p-4 text-center">
+    <p class="text-3xl font-extrabold text-orange-700">{{ counts.submissions }}</p>
+    <p class="text-xs text-slate-400 uppercase mt-1">Hồ sơ</p>
+  </div>
+  <div class="bg-white rounded-xl shadow p-4 text-center">
+    <p class="text-3xl font-extrabold text-orange-700">{{ counts.by_status.get('graded', 0) + counts.by_status.get('approved', 0) + counts.by_status.get('published', 0) }}</p>
+    <p class="text-xs text-slate-400 uppercase mt-1">Đã chấm</p>
+  </div>
+  <div class="bg-white rounded-xl shadow p-4 text-center">
+    <p class="text-3xl font-extrabold text-orange-700">{{ counts.appeals_open }}</p>
+    <p class="text-xs text-slate-400 uppercase mt-1">Phản hồi chờ xử lý</p>
+  </div>
+</div>
+
+<div class="bg-white rounded-xl shadow p-5 mb-5 text-sm">
+  <h2 class="font-semibold mb-2">Trạng thái hồ sơ</h2>
+  <div class="flex flex-wrap gap-2">
+    {% for st, n in counts.by_status.items() %}
+    <span class="bg-slate-100 rounded-full px-3 py-1">{{ st }}: <b>{{ n }}</b></span>
+    {% endfor %}
+  </div>
+  <p class="mt-3 text-slate-500">Hạn nộp: <b>{{ timeline.deadline }}</b>
+    · Nhắc 24h: {{ '✅ đã gửi' if timeline.reminder_sent else 'chưa' }}
+    · Khóa hồ sơ: {{ '✅ đã khóa' if timeline.locked_done else 'chưa' }}
+    — <a href="/admin/config" class="text-orange-700 hover:underline">cấu hình</a></p>
+</div>
+
+<div class="grid md:grid-cols-2 gap-5">
+  <div class="bg-white rounded-xl shadow p-5">
+    <h2 class="font-semibold">Quy trình chấm tự động</h2>
+    <ol class="text-sm text-slate-600 mt-2 space-y-3 list-decimal ml-4">
+      <li>
+        <b>Khóa hồ sơ & kiểm tra hợp lệ</b> — tự động sau hạn (Cloud Scheduler) hoặc chạy ngay:
+        <form method="post" action="/admin/lock" class="inline" onsubmit="return confirm('Khóa toàn bộ hồ sơ ngay bây giờ?')">
+          <button class="bg-slate-700 text-white rounded px-3 py-1 text-xs ml-1">Khóa ngay</button>
+        </form>
+      </li>
+      <li>
+        <b>Chấm bằng Claude API</b> — mỗi tiêu chí 2 lượt độc lập, lệch >15% chấm lượt 3 lấy trung vị:
+        <form method="post" action="/admin/grade" class="inline" onsubmit="return confirm('Bắt đầu chấm toàn bộ hồ sơ đã khóa & hợp lệ?')">
+          <button class="bg-orange-600 text-white rounded px-3 py-1 text-xs ml-1"
+                  {{ 'disabled' if grading.running }}>Bắt đầu chấm</button>
+        </form>
+        <div class="mt-1 text-xs">
+          {% if grading.running %}
+            <span class="text-amber-600 font-semibold">⏳ Đang chấm... (bắt đầu {{ grading.started_at[:16] | replace('T',' ') }}, bộ chấm: {{ grading.grader }} {{ grading.model or '' }})</span>
+            <script>setTimeout(() => location.reload(), 5000)</script>
+          {% elif grading.stats %}
+            <span class="text-emerald-700">Phiên gần nhất: chấm {{ grading.stats.get('graded', 0) }}/{{ grading.stats.get('total', 0) }} hồ sơ,
+            bỏ qua {{ grading.stats.get('skipped_invalid', 0) }} không hợp lệ, lỗi {{ grading.stats.get('errors', []) | length }}</span>
+            {% for e in grading.stats.get('errors', []) %}<div class="text-red-500">{{ e.submission_id }}: {{ e.error }}</div>{% endfor %}
+          {% endif %}
+        </div>
+      </li>
+      <li><b>Hội đồng thẩm định</b> — <a href="/council" class="text-orange-700 hover:underline">trang thẩm định</a>
+        (hồ sơ ≥85 điểm hoặc bất thường minh chứng: bắt buộc)</li>
+      <li>
+        <b>Công bố kết quả</b> — gửi email kèm nhận xét đến từng giảng viên:
+        <form method="post" action="/admin/publish" class="inline" onsubmit="return confirm('Công bố mọi hồ sơ đã phê duyệt?')">
+          <button class="bg-emerald-600 text-white rounded px-3 py-1 text-xs ml-1">Công bố</button>
+        </form>
+      </li>
+    </ol>
+  </div>
+
+  <div class="bg-white rounded-xl shadow p-5">
+    <h2 class="font-semibold">Công cụ</h2>
+    <div class="mt-3 space-y-2 text-sm">
+      <form method="post" action="/admin/remind" onsubmit="return confirm('Gửi email nhắc các hồ sơ còn thiếu?')">
+        <button class="w-full text-left border rounded-lg px-4 py-2 hover:bg-orange-50">📧 Gửi email nhắc hạn (mục còn thiếu)</button>
+      </form>
+      <a href="/admin/users" class="block border rounded-lg px-4 py-2 hover:bg-orange-50">👥 Quản lý giảng viên / Hội đồng (import CSV)</a>
+      <a href="/admin/config" class="block border rounded-lg px-4 py-2 hover:bg-orange-50">⚙️ Cấu hình mốc thời gian & rubric</a>
+      <a href="/reports" class="block border rounded-lg px-4 py-2 hover:bg-orange-50">📊 Dashboard & xuất báo cáo</a>
+      <a href="/admin/audit" class="block border rounded-lg px-4 py-2 hover:bg-orange-50">🗒 Nhật ký thao tác (audit log)</a>
+      <a href="/admin/emails" class="block border rounded-lg px-4 py-2 hover:bg-orange-50">✉️ Nhật ký email</a>
+      <a href="/admin/backup" class="block border rounded-lg px-4 py-2 hover:bg-orange-50">💾 Tải bản sao lưu dữ liệu (JSON)</a>
+    </div>
+    <p class="text-xs text-slate-400 mt-3">Bộ chấm hiện tại: <b>{{ settings.grader_kind }}</b>
+      {% if settings.grader_kind == 'claude' %}(model {{ settings.grading_model }}){% else %}(mock — đặt ANTHROPIC_API_KEY để chấm thật){% endif %}</p>
+  </div>
+</div>
+{% endblock %}

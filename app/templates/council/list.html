@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Thẩm định hồ sơ — Hội đồng{% endblock %}
+{% block content %}
+{% set status_labels = {'submitted':'Đã nộp','locked':'Đã khóa','grading':'Đang chấm','graded':'Chờ thẩm định','approved':'Đã phê duyệt','published':'Đã công bố'} %}
+<div class="flex flex-wrap items-center gap-3 mb-4">
+  <h1 class="text-xl font-bold">Thẩm định hồ sơ</h1>
+  <form method="get" class="ml-auto flex gap-2 text-sm">
+    <select name="khoa" class="border rounded-lg px-2 py-1.5">
+      <option value="">— Tất cả khoa —</option>
+      {% for k in khoas %}<option value="{{ k }}" {{ 'selected' if k == khoa }}>{{ k }}</option>{% endfor %}
+    </select>
+    <select name="status" class="border rounded-lg px-2 py-1.5">
+      <option value="">— Mọi trạng thái —</option>
+      {% for s, l in status_labels.items() %}<option value="{{ s }}" {{ 'selected' if s == status }}>{{ l }}</option>{% endfor %}
+    </select>
+    <button class="bg-slate-700 text-white rounded-lg px-4">Lọc</button>
+  </form>
+</div>
+
+<div class="bg-white rounded-xl shadow overflow-x-auto">
+  <table class="w-full text-sm">
+    <thead><tr class="text-left text-xs text-slate-400 border-b">
+      <th class="px-4 py-2.5">Giảng viên</th><th class="px-2 py-2.5">Khoa</th>
+      <th class="px-2 py-2.5 text-center">Hợp lệ</th>
+      <th class="px-2 py-2.5 text-center">Điểm AI</th>
+      <th class="px-2 py-2.5 text-center">Thẩm định bắt buộc</th>
+      <th class="px-2 py-2.5">Trạng thái</th><th class="px-4 py-2.5"></th>
+    </tr></thead>
+    <tbody>
+      {% for r in rows %}
+      <tr class="border-b last:border-0 hover:bg-orange-50/40 {{ 'bg-amber-50' if (r.review or {}).get('mandatory') }}">
+        <td class="px-4 py-2.5 font-medium">{{ r.user.ho_ten or r.user.email }}
+          <span class="text-xs text-slate-400">{{ r.user.ma_gv }}</span></td>
+        <td class="px-2 py-2.5">{{ r.user.khoa or '' }}</td>
+        <td class="px-2 py-2.5 text-center">
+          {% if r.sub.get('valid') is true %}✅{% elif r.sub.get('valid') is false %}<span title="{{ (r.sub.validation or {}).get('warnings', []) | join('; ') }}">❌</span>{% else %}–{% endif %}
+        </td>
+        <td class="px-2 py-2.5 text-center font-bold">{{ '%g' % r.sub.ai_total if r.sub.get('ai_total') is not none else '–' }}</td>
+        <td class="px-2 py-2.5 text-center">
+          {% if (r.review or {}).get('mandatory') %}
+            <span class="text-amber-600 font-semibold" title="{{ r.review.mandatory_reason }}">⚠ Bắt buộc</span>
+          {% else %}–{% endif %}
+        </td>
+        <td class="px-2 py-2.5">{{ status_labels.get(r.sub.status, r.sub.status) }}</td>
+        <td class="px-4 py-2.5 text-right">
+          <a href="/council/submission/{{ r.sub.id }}" class="text-orange-700 font-semibold hover:underline">Thẩm định →</a>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="7" class="px-4 py-8 text-center text-slate-400">Chưa có hồ sơ nào.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

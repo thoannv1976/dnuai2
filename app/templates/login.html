@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Đăng nhập — DNU AI-Assess{% endblock %}
+{% block content %}
+<div class="max-w-md mx-auto mt-10">
+  <div class="bg-white rounded-xl shadow p-8">
+    <h1 class="text-2xl font-bold text-center text-orange-700">DNU AI-Assess</h1>
+    <p class="text-center text-slate-500 mt-2 text-sm">
+      Hệ thống đánh giá năng lực ứng dụng AI của giảng viên<br>Trường Đại học Đại Nam — 2026
+    </p>
+
+    {% if settings.app_mode == 'gcp' %}
+      <a href="/auth/google"
+         class="mt-8 w-full flex items-center justify-center gap-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg py-3 font-semibold">
+        Đăng nhập bằng email DNU (Google)
+      </a>
+      <p class="text-xs text-slate-400 mt-3 text-center">Chỉ chấp nhận email thuộc domain
+        {{ settings.allowed_email_domains | join(', ') }}</p>
+    {% else %}
+      <form method="post" action="/login/dev" class="mt-6 space-y-3">
+        <label class="block text-sm font-medium">Email (chế độ thử nghiệm)</label>
+        <input name="email" required placeholder="ví dụ: gv001@dainam.edu.vn"
+               class="w-full border rounded-lg px-3 py-2">
+        <button class="w-full bg-orange-600 hover:bg-orange-700 text-white rounded-lg py-2.5 font-semibold">
+          Đăng nhập
+        </button>
+      </form>
+      {% if demo_users %}
+      <div class="mt-6">
+        <p class="text-xs uppercase text-slate-400 font-semibold mb-2">Tài khoản demo</p>
+        <div class="space-y-1 max-h-56 overflow-auto">
+          {% for u in demo_users %}
+          <form method="post" action="/login/dev">
+            <input type="hidden" name="email" value="{{ u.email }}">
+            <button class="w-full text-left text-sm border rounded px-3 py-1.5 hover:bg-orange-50 flex justify-between">
+              <span>{{ u.ho_ten or u.email }}</span>
+              <span class="text-slate-400">{{ {'lecturer':'Giảng viên','council':'Hội đồng','admin':'Quản trị'}[u.role] }}</span>
+            </button>
+          </form>
+          {% endfor %}
+        </div>
+      </div>
+      {% else %}
+      <p class="text-xs text-amber-600 mt-4">Chưa có người dùng — chạy <code>python scripts/seed_demo.py</code> để tạo dữ liệu demo.</p>
+      {% endif %}
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

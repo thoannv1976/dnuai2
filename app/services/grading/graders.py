@@ -1,0 +1,109 @@
+"""Các bộ chấm: ClaudeGrader (Claude API, structured output) và MockGrader
+(xác định, không tốn phí — dùng cho test/demo khi chưa có API key)."""
+from __future__ import annotations
+
+import hashlib
+import logging
+import time
+from abc import ABC, abstractmethod
+
+from app.models.schemas import CriterionGrade, PartGradeResult
+from app.services.grading.prompts import system_prompt, user_prompt
+
+logger = logging.getLogger("dnu.grading")
+
+
+class Grader(ABC):
+    name = "base"
+
+    @abstractmethod
+    def grade(self, part: str, part_def: dict, context: dict,
+              products_text: str, evidence_text: str, pass_no: int) -> PartGradeResult: ...
+
+
+class MockGrader(Grader):
+    """Điểm giả lập xác định theo hash (ổn định giữa các lần chạy, lượt 1/2 lệch nhẹ)."""
+
+    name = "mock"
+
+    def _factor(self, key: str) -> float:
+        h = hashlib.sha256(key.encode()).digest()
+        return 0.5 + (h[0] / 255) * 0.45  # 0.50 → 0.95
+
+    def grade(self, part, part_def, context, products_text, evidence_text, pass_no):
+        sid = context.get("submission_id", "")
+        has_products = bool(products_text.strip()) and "[Không có sản phẩm" not in products_text
+        has_evidence = bool(evidence_text.strip()) and "[Không có minh chứng" not in evidence_text
+        criteria = []
+        for c in part_def["criteria"]:
+            base = self._factor(f"{sid}:{part}:{c['id']}")
+            jitter = ((pass_no * 7919) % 13 - 6) / 100  # ±0.06 — đa số dưới ngưỡng lệch 15%
+            factor = min(0.98, max(0.05, base + jitter)) if has_products else 0.0
+            if c.get("bonus"):
+                factor = factor if "khuyến khích" in products_text.lower() else 0.0
+            score = round(round(c["max"] * factor / 0.25) * 0.25, 2)
+            criteria.append(CriterionGrade(
+                id=c["id"], score=score,
+                comment=f"[Chấm thử nghiệm lượt {pass_no}] Đánh giá tự động tiêu chí {c['id']}: "
+                        f"đạt khoảng {factor * 100:.0f}% yêu cầu." if has_products
+                        else f"Không có sản phẩm cho tiêu chí {c['id']} — 0 điểm.",
+                evidence_ok=has_evidence,
+            ))
+        flags = []
+        if "BATTHUONG" in products_text:
+            flags.append("Phát hiện dấu hiệu bất thường trong nội dung (mock)")
+        return PartGradeResult(
+            criteria=criteria,
+            evidence_findings="Minh chứng có nộp." if has_evidence else "Không có minh chứng cho phần này.",
+            anomaly_flags=flags,
+        )
+
+
+class ClaudeGrader(Grader):
+    """Chấm bằng Claude API.
+
+    - Structured output (messages.parse + Pydantic) → kết quả luôn đúng schema.
+    - System prompt chứa rubric gắn cache_control → các hồ sơ cùng Phần dùng lại cache.
+    - SDK tự retry 429/5xx; bọc thêm 3 lần thử cho lỗi khác.
+    """
+
+    name = "claude"
+
+    def __init__(self, model: str, api_key: str = ""):
+        import anthropic
+
+        self.model = model
+        self.client = anthropic.Anthropic(api_key=api_key or None, max_retries=3)
+
+    def grade(self, part, part_def, context, products_text, evidence_text, pass_no):
+        sys_blocks = [{
+            "type": "text",
+            "text": system_prompt(part, part_def),
+            "cache_control": {"type": "ephemeral"},
+        }]
+        msg = user_prompt(part, context, products_text, evidence_text)
+        last_exc: Exception | None = None
+        for attempt in range(3):
+            try:
+                response = self.client.messages.parse(
+                    model=self.model,
+                    max_tokens=8000,
+                    system=sys_blocks,
+                    messages=[{"role": "user", "content": msg}],
+                    output_format=PartGradeResult,
+                )
+                result = response.parsed_output
+                if result is None:
+                    raise ValueError("Claude không trả về kết quả đúng schema")
+                return result
+            except Exception as exc:  # noqa: BLE001 — retry mọi lỗi tạm thời
+                last_exc = exc
+                logger.warning("Lỗi chấm %s lượt %s (lần %s): %s", part, pass_no, attempt + 1, exc)
+                time.sleep(2 ** attempt)
+        raise RuntimeError(f"Chấm Phần {part} thất bại sau 3 lần thử: {last_exc}")
+
+
+def create_grader(settings) -> Grader:
+    if settings.grader_kind == "claude":
+        return ClaudeGrader(settings.grading_model, settings.anthropic_api_key)
+    return MockGrader()
