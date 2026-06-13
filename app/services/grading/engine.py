@@ -151,28 +151,53 @@ def grade_part(store, storage, grader: Grader, submission: dict, part: str, rubr
             "evidence_findings": f"{r1.evidence_findings}", "evidence_missing": evidence_missing}
 
 
-def grade_submission(store, storage, grader: Grader, submission_id: str, force: bool = False) -> dict:
-    """Chấm toàn bộ hồ sơ (B–G) với checkpoint từng phần."""
+def invalidate_grading(store, submission_id: str) -> None:
+    """Xóa checkpoint chấm khi giảng viên sửa hồ sơ — để lần chấm sau (thử hoặc chính thức)
+    chấm lại trên nội dung mới, không dùng kết quả cũ."""
+    sub = store.get("submissions", submission_id)
+    if not sub:
+        return
+    if sub.get("grading_progress") or sub.get("ai_graded"):
+        store.patch("submissions", submission_id, {
+            "grading_progress": {}, "part_results": {}, "anomaly_flags": [],
+            "ai_graded": False, "ai_total": None,
+        })
+
+
+def grade_submission(store, storage, grader: Grader, submission_id: str,
+                     force: bool = False, keep_status: bool = False) -> dict:
+    """Chấm toàn bộ hồ sơ (B–G) với checkpoint từng phần.
+
+    keep_status=True: chấm thử theo yêu cầu (Admin/Hội đồng) — KHÔNG đổi trạng thái hồ sơ
+    sang 'graded' (giữ nguyên để giảng viên vẫn sửa/nộp được trước hạn). Vẫn lưu điểm,
+    nhận xét, review để Hội đồng xem.
+    """
     submission = store.get("submissions", submission_id)
     if not submission:
         raise ValueError("Không tìm thấy hồ sơ")
+    original_status = submission.get("status")
     rubric = get_rubric(store)
     progress = {} if force else (submission.get("grading_progress") or {})
     part_results = submission.get("part_results") or {}
     all_flags: list[str] = submission.get("anomaly_flags") or [] if not force else []
     store.patch("submissions", submission_id, {"status": "grading"})
 
-    for part in GRADED_PARTS:
-        if progress.get(part) and not force:
-            continue
-        logger.info("Chấm hồ sơ %s — Phần %s", submission_id, part)
-        result = grade_part(store, storage, grader, submission, part, rubric)
-        part_results[part] = {"total": result["total"], "evidence_missing": result["evidence_missing"]}
-        all_flags = list(dict.fromkeys(all_flags + result["anomaly_flags"]))
-        progress[part] = True
-        store.patch("submissions", submission_id, {
-            "grading_progress": progress, "part_results": part_results, "anomaly_flags": all_flags,
-        })
+    try:
+        for part in GRADED_PARTS:
+            if progress.get(part) and not force:
+                continue
+            logger.info("Chấm hồ sơ %s — Phần %s", submission_id, part)
+            result = grade_part(store, storage, grader, submission, part, rubric)
+            part_results[part] = {"total": result["total"], "evidence_missing": result["evidence_missing"]}
+            all_flags = list(dict.fromkeys(all_flags + result["anomaly_flags"]))
+            progress[part] = True
+            store.patch("submissions", submission_id, {
+                "grading_progress": progress, "part_results": part_results, "anomaly_flags": all_flags,
+            })
+    except Exception:
+        # Khôi phục trạng thái để không kẹt ở 'grading' (đặc biệt khi chấm thử trước hạn)
+        store.patch("submissions", submission_id, {"status": original_status})
+        raise
 
     ai_total = round(sum(p["total"] for p in part_results.values()), 2)
     mandatory = ai_total >= MANDATORY_REVIEW_SCORE or bool(all_flags)
@@ -182,13 +207,22 @@ def grade_submission(store, storage, grader: Grader, submission_id: str, force: 
     if all_flags:
         mandatory_reason.append("Có dấu hiệu bất thường về minh chứng")
 
-    store.patch("submissions", submission_id, {"status": "graded", "ai_total": ai_total})
-    store.put("reviews", submission_id, {
-        "submission_id": submission_id, "status": "pending",
-        "mandatory": mandatory, "mandatory_reason": "; ".join(mandatory_reason),
-        "ai_total": ai_total, "created_at": now_vn().isoformat(),
-        "approved_at": None, "total_final": None, "classification": None, "reviewer": None,
+    final_status = original_status if keep_status else "graded"
+    store.patch("submissions", submission_id, {
+        "status": final_status, "ai_total": ai_total,
+        "ai_graded": True, "ai_graded_at": now_vn().isoformat(),
     })
+    # Không ghi đè quyết định đã phê duyệt khi chấm thử lại
+    existing_review = store.get("reviews", submission_id) or {}
+    if existing_review.get("status") in ("approved", "published") and keep_status:
+        store.patch("reviews", submission_id, {"ai_total": ai_total})
+    else:
+        store.put("reviews", submission_id, {
+            "submission_id": submission_id, "status": "pending",
+            "mandatory": mandatory, "mandatory_reason": "; ".join(mandatory_reason),
+            "ai_total": ai_total, "created_at": now_vn().isoformat(),
+            "approved_at": None, "total_final": None, "classification": None, "reviewer": None,
+        })
     return {"submission_id": submission_id, "ai_total": ai_total, "mandatory": mandatory}
 
 

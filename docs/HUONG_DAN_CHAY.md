@@ -85,6 +85,8 @@ Sau triển khai: đăng nhập admin → **/admin/users** import danh sách gi�
 ```
 GV đăng nhập → kê khai Phần A → nộp sản phẩm + minh chứng B–G (tệp ≤200MB / liên kết)
    → bấm NỘP (email xác nhận; nộp lại được trước hạn — chỉ chấm bản cuối)
+[Tùy chọn] Admin/Hội đồng "Chấm tự động hồ sơ này" để kiểm thử & chấm thử TRƯỚC hạn:
+   chấm AI theo rubric, KHÔNG khóa quyền sửa của GV; GV sửa lại thì kết quả thử bị xóa để chấm lại.
 17h00 30/6: Cloud Scheduler khóa hồ sơ + kiểm tra hợp lệ (trước đó 24h tự nhắc mục thiếu)
 Admin "Bắt đầu chấm": Claude chấm từng phần theo rubric — 2 lượt độc lập/tiêu chí,
    lệch >15% chấm lượt 3 lấy trung vị; thiếu minh chứng trừ ≤50%; đối chiếu Phần G;

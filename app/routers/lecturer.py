@@ -16,6 +16,7 @@ from app.db import new_id
 from app.rubric import get_rubric
 from app.services import audit
 from app.services.emailer import email_submit_confirmation
+from app.services.grading.engine import invalidate_grading
 from app.services.ops import appeal_window_open, deadline_passed, get_timeline
 from app.services.validation import check_extension, check_link, check_naming, check_size, completeness
 
@@ -39,6 +40,11 @@ def get_submission(store, user: dict) -> dict:
 def ensure_editable(store, sub: dict) -> None:
     if deadline_passed(store) or sub.get("status") not in ("draft", "submitted"):
         raise HTTPException(400, "Đã quá hạn nộp (17h00 ngày 30/6/2026) hoặc hồ sơ đã khóa — không thể chỉnh sửa.")
+
+
+def mark_dirty(store, sub: dict) -> None:
+    """Giảng viên vừa thay đổi hồ sơ → xóa kết quả chấm thử cũ (nếu có) để chấm lại trên nội dung mới."""
+    invalidate_grading(store, sub["id"])
 
 
 def render(request: Request, template: str, user: dict, **ctx):
@@ -89,6 +95,7 @@ def part_a_save(
         "muc_thanh_thao": muc_thanh_thao if 1 <= muc_thanh_thao <= 5 else None,
     }
     store.patch("submissions", sub["id"], {"part_a": part_a})
+    mark_dirty(store, sub)
     return RedirectResponse("/lecturer?saved=A", status_code=303)
 
 
@@ -146,6 +153,8 @@ async def upload_file(part: str, request: Request, kind: str = Form(...),
         })
         uploaded += 1
 
+    if uploaded:
+        mark_dirty(store, sub)
     params = f"uploaded={uploaded}"
     if errors:
         from urllib.parse import quote
@@ -181,6 +190,7 @@ def add_link(part: str, request: Request, kind: str = Form(...), url: str = Form
         "uploaded_at": now_vn().isoformat(),
     }
     store.put("submission_items", item["id"], item)
+    mark_dirty(store, sub)
     return RedirectResponse(f"/lecturer/part/{part}?linked=1", status_code=303)
 
 
@@ -195,6 +205,7 @@ def delete_item(item_id: str, request: Request, user: dict = lecturer_dep):
     if item["type"] == "file":
         storage.delete(item["storage_path"])
     store.delete("submission_items", item_id)
+    mark_dirty(store, sub)
     return RedirectResponse(f"/lecturer/part/{item['part']}?deleted=1", status_code=303)
 
 

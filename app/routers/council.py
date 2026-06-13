@@ -1,13 +1,17 @@
 """Phân hệ thẩm định — dành cho Hội đồng đánh giá cấp Trường."""
 from __future__ import annotations
 
+import threading
+
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
 
 from app.auth import require_role
-from app.config import GRADED_PARTS, ROLE_ADMIN, ROLE_COUNCIL, now_vn
+from app.config import GRADED_PARTS, ROLE_ADMIN, ROLE_COUNCIL, get_settings, now_vn
 from app.rubric import get_rubric
 from app.services import audit
+from app.services.grading.engine import grade_submission
+from app.services.grading.graders import create_grader
 from app.services.ops import approve_submission, part_totals_final
 
 router = APIRouter(prefix="/council")
@@ -61,7 +65,42 @@ def detail(sid: str, request: Request, user: dict = council_dep):
     appeal = store.find_one("appeals", submission_id=sid)
     return render(request, "council/detail.html", user, sub=sub, owner=owner, rubric=rubric,
                   review=review, items=items, scores=by_part, totals=totals,
-                  total_now=round(sum(totals.values()), 2), parts=GRADED_PARTS, appeal=appeal)
+                  total_now=round(sum(totals.values()), 2), parts=GRADED_PARTS, appeal=appeal,
+                  grade_job=sub.get("grade_job") or {})
+
+
+@router.post("/submission/{sid}/grade")
+def grade_one(sid: str, request: Request, user: dict = council_dep):
+    """Chấm tự động MỘT giảng viên theo yêu cầu (Admin/Hội đồng) — kiểm thử & chấm thử trước hạn.
+
+    Chạy nền, không đổi trạng thái hồ sơ (giảng viên vẫn sửa/nộp được trước hạn).
+    """
+    app = request.app
+    store, storage = app.state.store, app.state.storage
+    sub = store.get("submissions", sid)
+    if not sub:
+        raise HTTPException(404)
+    if (sub.get("grade_job") or {}).get("running"):
+        raise HTTPException(400, "Hồ sơ này đang được chấm")
+    grader = create_grader(get_settings())
+    store.patch("submissions", sid, {"grade_job": {
+        "running": True, "started_at": now_vn().isoformat(),
+        "by": user["email"], "grader": grader.name, "error": None,
+    }})
+    audit.log(store, user, "grade_one", f"submissions/{sid}",
+              note=f"Chấm thử theo yêu cầu (grader={grader.name})")
+
+    def worker():
+        job = {"running": False, "finished_at": now_vn().isoformat(),
+               "by": user["email"], "grader": grader.name, "error": None}
+        try:
+            grade_submission(store, storage, grader, sid, force=True, keep_status=True)
+        except Exception as exc:  # noqa: BLE001 — ghi lỗi để hiển thị, không làm sập tiến trình
+            job["error"] = str(exc)
+        store.patch("submissions", sid, {"grade_job": job})
+
+    threading.Thread(target=worker, daemon=True).start()
+    return RedirectResponse(f"/council/submission/{sid}?grading=started", status_code=303)
 
 
 @router.post("/submission/{sid}/score")
