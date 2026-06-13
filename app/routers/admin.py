@@ -202,6 +202,32 @@ def config_page(request: Request, user: dict = admin_dep):
                   rubric=get_rubric(store), settings=get_settings())
 
 
+@router.get("/rubric.xlsx")
+def rubric_xlsx(request: Request, user: dict = admin_dep):
+    from fastapi.responses import Response
+
+    from app.services.rubric_export import rubric_to_xlsx
+
+    data = rubric_to_xlsx(get_rubric(request.app.state.store))
+    return Response(
+        data, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename=DNU-Rubric-{now_vn():%Y%m%d}.xlsx"},
+    )
+
+
+@router.get("/rubric.docx")
+def rubric_docx(request: Request, user: dict = admin_dep):
+    from fastapi.responses import Response
+
+    from app.services.rubric_export import rubric_to_docx
+
+    data = rubric_to_docx(get_rubric(request.app.state.store))
+    return Response(
+        data, media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f"attachment; filename=DNU-Rubric-{now_vn():%Y%m%d}.docx"},
+    )
+
+
 @router.post("/config/timeline")
 def config_timeline(request: Request, deadline: str = Form(...), open_at: str = Form(...), user: dict = admin_dep):
     store = request.app.state.store

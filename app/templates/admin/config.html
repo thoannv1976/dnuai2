@@ -37,7 +37,12 @@
     </table>
     <p class="text-xs text-slate-400 mt-2">Đổi qua biến môi trường <code>GRADER</code>, <code>GRADING_MODEL</code>, <code>ANTHROPIC_API_KEY</code>.</p>
 
-    <h2 class="font-semibold mt-5">Rubric (phiên bản {{ rubric.version }})</h2>
+    <div class="flex items-center gap-2 mt-5">
+      <h2 class="font-semibold">Rubric (phiên bản {{ rubric.version }})</h2>
+      <a href="/admin/rubric.xlsx" class="ml-auto text-xs bg-emerald-600 hover:bg-emerald-700 text-white rounded px-3 py-1.5">⬇ Excel (.xlsx)</a>
+      <a href="/admin/rubric.docx" class="text-xs bg-blue-600 hover:bg-blue-700 text-white rounded px-3 py-1.5">⬇ Word (.docx)</a>
+    </div>
+    <p class="text-xs text-slate-400 mt-1">Tải rubric đầy đủ (tiêu chí, điểm tối đa, hướng dẫn chấm, xếp loại) để phổ biến/in.</p>
     <table class="text-sm mt-2 w-full">
       <thead><tr class="text-left text-xs text-slate-400"><th>Phần</th><th>Nội dung</th><th class="text-right">Điểm</th></tr></thead>
       {% for key, p in rubric.parts.items() if p.graded %}
