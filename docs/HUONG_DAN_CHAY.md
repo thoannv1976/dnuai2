@@ -80,6 +80,12 @@ Sau triển khai: đăng nhập admin → **/admin/users** import danh sách gi�
 
 > **Đăng nhập** dùng **ID (email hoặc mã giảng viên) + mật khẩu** băm PBKDF2. Không còn dùng Google SSO.
 
+## 6. Cấu hình AI trong app & thống kê chi phí
+
+Quản trị viên có thể **nạp Claude API key + chọn model ngay trong app** tại **Cấu hình → Cấu hình AI chấm điểm** (không cần đổi biến môi trường; cấu hình DB ưu tiên hơn `ANTHROPIC_API_KEY`). Có nút **Kiểm tra kết nối Claude**. Chế độ: *Tự động* (có key → dùng Claude), *Bắt buộc Claude*, hoặc *Mock* (giả lập).
+
+Mỗi lần gọi Claude được ghi nhận; xem **Thống kê sử dụng AI** (`/admin/ai-usage`): số lần gọi, token (input/output/cache), **ước tính chi phí USD/VND** theo từng model. API key lưu dạng ẩn (chỉ hiện 4 ký tự cuối), không hiển thị nguyên văn.
+
 ## 5. Cấu trúc luồng nghiệp vụ
 
 ```

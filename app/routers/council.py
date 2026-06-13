@@ -82,7 +82,7 @@ def grade_one(sid: str, request: Request, user: dict = council_dep):
         raise HTTPException(404)
     if (sub.get("grade_job") or {}).get("running"):
         raise HTTPException(400, "Hồ sơ này đang được chấm")
-    grader = create_grader(get_settings())
+    grader = create_grader(get_settings(), store)
     store.patch("submissions", sid, {"grade_job": {
         "running": True, "started_at": now_vn().isoformat(),
         "by": user["email"], "grader": grader.name, "error": None,

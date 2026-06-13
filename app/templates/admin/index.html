@@ -86,14 +86,15 @@
         <button class="w-full text-left border rounded-lg px-4 py-2 hover:bg-orange-50">📧 Gửi email nhắc hạn (mục còn thiếu)</button>
       </form>
       <a href="/admin/users" class="block border rounded-lg px-4 py-2 hover:bg-orange-50">👥 Quản lý giảng viên / Hội đồng (import CSV)</a>
-      <a href="/admin/config" class="block border rounded-lg px-4 py-2 hover:bg-orange-50">⚙️ Cấu hình mốc thời gian & rubric</a>
+      <a href="/admin/config" class="block border rounded-lg px-4 py-2 hover:bg-orange-50">⚙️ Cấu hình AI, mốc thời gian & rubric</a>
+      <a href="/admin/ai-usage" class="block border rounded-lg px-4 py-2 hover:bg-orange-50">💰 Thống kê sử dụng AI (token, chi phí)</a>
       <a href="/reports" class="block border rounded-lg px-4 py-2 hover:bg-orange-50">📊 Dashboard & xuất báo cáo</a>
       <a href="/admin/audit" class="block border rounded-lg px-4 py-2 hover:bg-orange-50">🗒 Nhật ký thao tác (audit log)</a>
       <a href="/admin/emails" class="block border rounded-lg px-4 py-2 hover:bg-orange-50">✉️ Nhật ký email</a>
       <a href="/admin/backup" class="block border rounded-lg px-4 py-2 hover:bg-orange-50">💾 Tải bản sao lưu dữ liệu (JSON)</a>
     </div>
-    <p class="text-xs text-slate-400 mt-3">Bộ chấm hiện tại: <b>{{ settings.grader_kind }}</b>
-      {% if settings.grader_kind == 'claude' %}(model {{ settings.grading_model }}){% else %}(mock — đặt ANTHROPIC_API_KEY để chấm thật){% endif %}</p>
+    <p class="text-xs text-slate-400 mt-3">Bộ chấm hiện tại: <b>{{ ai_cfg.grader }}</b>
+      {% if ai_cfg.grader == 'claude' %}(model {{ ai_cfg.model }}){% else %}(mock — nạp API key tại <a class="underline" href="/admin/config">Cấu hình AI</a> để chấm thật){% endif %}</p>
   </div>
 </div>
 {% endblock %}

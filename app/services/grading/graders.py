@@ -69,11 +69,12 @@ class ClaudeGrader(Grader):
 
     name = "claude"
 
-    def __init__(self, model: str, api_key: str = ""):
+    def __init__(self, model: str, api_key: str = "", on_usage=None):
         import anthropic
 
         self.model = model
         self.client = anthropic.Anthropic(api_key=api_key or None, max_retries=3)
+        self.on_usage = on_usage  # callable(model, usage) — ghi nhận token đã dùng
 
     def grade(self, part, part_def, context, products_text, evidence_text, pass_no):
         sys_blocks = [{
@@ -92,6 +93,11 @@ class ClaudeGrader(Grader):
                     messages=[{"role": "user", "content": msg}],
                     output_format=PartGradeResult,
                 )
+                if self.on_usage is not None:
+                    try:
+                        self.on_usage(self.model, getattr(response, "usage", None))
+                    except Exception:  # noqa: BLE001 — ghi usage lỗi không được làm hỏng việc chấm
+                        logger.warning("Không ghi được usage AI", exc_info=True)
                 result = response.parsed_output
                 if result is None:
                     raise ValueError("Claude không trả về kết quả đúng schema")
@@ -103,7 +109,17 @@ class ClaudeGrader(Grader):
         raise RuntimeError(f"Chấm Phần {part} thất bại sau 3 lần thử: {last_exc}")
 
 
-def create_grader(settings) -> Grader:
+def create_grader(settings, store=None) -> Grader:
+    """Tạo bộ chấm. Nếu có store: dùng cấu hình AI Admin nạp trong app (DB) và ghi nhận usage."""
+    if store is not None:
+        from app.services.ai_config import get_ai_config
+        from app.services.ai_usage import record_usage
+
+        cfg = get_ai_config(store)
+        if cfg["grader"] == "claude":
+            return ClaudeGrader(cfg["model"], cfg["api_key"],
+                                on_usage=lambda model, usage: record_usage(store, model, usage))
+        return MockGrader()
     if settings.grader_kind == "claude":
         return ClaudeGrader(settings.grading_model, settings.anthropic_api_key)
     return MockGrader()

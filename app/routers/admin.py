@@ -31,6 +31,8 @@ def _grading_status(store) -> dict:
 
 @router.get("")
 def index(request: Request, user: dict = admin_dep):
+    from app.services.ai_config import get_ai_config
+
     store = request.app.state.store
     subs = store.all("submissions")
     by_status: dict[str, int] = {}
@@ -46,7 +48,7 @@ def index(request: Request, user: dict = admin_dep):
     }
     settings = get_settings()
     return render(request, "admin/index.html", user, counts=counts, timeline=get_timeline(store),
-                  grading=_grading_status(store), settings=settings)
+                  grading=_grading_status(store), settings=settings, ai_cfg=get_ai_config(store))
 
 
 @router.post("/lock")
@@ -69,7 +71,7 @@ def grade(request: Request, force: bool = Form(False), user: dict = admin_dep):
     if status.get("running"):
         raise HTTPException(400, "Đang có phiên chấm chạy")
     settings = get_settings()
-    grader = create_grader(settings)
+    grader = create_grader(settings, store)
     store.put("config", "grading_status", {
         "id": "grading_status", "running": True, "started_at": now_vn().isoformat(),
         "grader": grader.name, "model": getattr(grader, "model", ""), "stats": None,
@@ -197,9 +199,13 @@ def users_toggle(uid: str, request: Request, user: dict = admin_dep):
 
 @router.get("/config")
 def config_page(request: Request, user: dict = admin_dep):
+    from app.services.ai_config import get_ai_config
+    from app.services.ai_usage import get_stats
+
     store = request.app.state.store
     return render(request, "admin/config.html", user, timeline=get_timeline(store),
-                  rubric=get_rubric(store), settings=get_settings())
+                  rubric=get_rubric(store), settings=get_settings(),
+                  ai_cfg=get_ai_config(store), ai_stats=get_stats(store))
 
 
 @router.get("/rubric.xlsx")
@@ -237,6 +243,69 @@ def config_timeline(request: Request, deadline: str = Form(...), open_at: str = 
     store.put("config", "timeline", tl)
     audit.log(store, user, "update_timeline", "config/timeline", before=before, after=tl)
     return RedirectResponse("/admin/config?saved=1", status_code=303)
+
+
+# ---------- cấu hình AI (Admin nạp API key + model) ----------
+
+@router.post("/config/ai")
+def config_ai(request: Request, api_key: str = Form(""), model: str = Form(""),
+              grader: str = Form("auto"), clear_key: str = Form(""), user: dict = admin_dep):
+    from app.services.ai_config import set_ai_config
+
+    store = request.app.state.store
+    set_ai_config(store, api_key=api_key, model=model, grader=grader, clear_key=bool(clear_key))
+    audit.log(store, user, "update_ai_config", "config/ai",
+              note=f"grader={grader}, model={model or '(giữ nguyên)'}, "
+                   f"{'xóa key' if clear_key else ('cập nhật key' if api_key.strip() else 'giữ key')}")
+    return RedirectResponse("/admin/config?ai=1", status_code=303)
+
+
+@router.post("/config/ai/test")
+def config_ai_test(request: Request, user: dict = admin_dep):
+    """Gọi thử Claude một lần để kiểm tra API key + ghi nhận usage."""
+    from app.services.ai_config import get_ai_config
+    from app.services.ai_usage import record_usage
+
+    store = request.app.state.store
+    cfg = get_ai_config(store)
+    if cfg["grader"] != "claude" or not cfg["has_key"]:
+        return RedirectResponse("/admin/config?ai_test=Chưa+cấu+hình+API+key+Claude", status_code=303)
+    try:
+        import anthropic
+
+        client = anthropic.Anthropic(api_key=cfg["api_key"], max_retries=1)
+        resp = client.messages.create(
+            model=cfg["model"], max_tokens=16,
+            messages=[{"role": "user", "content": "Trả lời đúng một từ: OK"}],
+        )
+        record_usage(store, cfg["model"], getattr(resp, "usage", None), kind="test")
+        msg = "Kết nối Claude thành công"
+    except Exception as exc:  # noqa: BLE001 — báo lỗi gọn cho admin
+        msg = f"Lỗi kết nối: {type(exc).__name__}: {exc}"[:200]
+    audit.log(store, user, "test_ai", "config/ai", note=msg)
+    from urllib.parse import quote
+
+    return RedirectResponse(f"/admin/config?ai_test={quote(msg)}", status_code=303)
+
+
+@router.get("/ai-usage")
+def ai_usage_page(request: Request, user: dict = admin_dep):
+    from app.services.ai_config import get_ai_config
+    from app.services.ai_usage import USD_TO_VND, get_stats
+
+    store = request.app.state.store
+    return render(request, "admin/ai_usage.html", user,
+                  stats=get_stats(store), ai_cfg=get_ai_config(store), usd_vnd=USD_TO_VND)
+
+
+@router.post("/ai-usage/reset")
+def ai_usage_reset(request: Request, user: dict = admin_dep):
+    from app.services.ai_usage import reset_stats
+
+    store = request.app.state.store
+    n = reset_stats(store)
+    audit.log(store, user, "reset_ai_usage", "ai_usage", note=f"Xóa {n} bản ghi")
+    return RedirectResponse("/admin/ai-usage?reset=1", status_code=303)
 
 
 @router.get("/audit")
