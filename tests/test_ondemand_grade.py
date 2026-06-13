@@ -103,3 +103,35 @@ def test_invalidate_grading_helper(store):
     invalidate_grading(store, "s1")
     s = store.get("submissions", "s1")
     assert s["ai_graded"] is False and not s["grading_progress"] and s["ai_total"] is None
+
+
+def test_grade_locked_becomes_graded_then_approve(client, store, storage):
+    """Sau hạn: hồ sơ đã khóa → chấm chính thức → status 'graded' → Hội đồng phê duyệt được."""
+    sub = _make_submitted(client, store)
+    # Admin khóa hồ sơ (mô phỏng sau hạn)
+    login(client, "admin@dainam.edu.vn")
+    client.post("/admin/lock", follow_redirects=False)
+    assert store.get("submissions", sub["id"])["status"] == "locked"
+
+    # Hội đồng chấm hồ sơ đã khóa → chuyển 'graded'
+    login(client, "hd@dainam.edu.vn")
+    r = client.post(f"/council/submission/{sub['id']}/grade", follow_redirects=False)
+    assert r.status_code == 303
+    sub = _wait_done(store, sub["id"])
+    assert sub["status"] == "graded"          # chấm chính thức, KHÔNG giữ 'locked'
+    assert sub["ai_graded"] is True
+
+    # Phê duyệt được
+    r = client.post(f"/council/submission/{sub['id']}/approve", follow_redirects=False)
+    assert r.status_code == 303
+    assert store.get("submissions", sub["id"])["status"] == "approved"
+
+    # Không cho chấm lại hồ sơ đã phê duyệt
+    r = client.post(f"/council/submission/{sub['id']}/grade", follow_redirects=False)
+    assert r.status_code == 400
+
+
+def test_no_batch_grade_endpoint(client):
+    """Đã bỏ chức năng chấm toàn bộ tự động — endpoint /admin/grade không còn."""
+    login(client, "admin@dainam.edu.vn")
+    assert client.post("/admin/grade", follow_redirects=False).status_code == 404

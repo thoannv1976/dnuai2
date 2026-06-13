@@ -71,30 +71,36 @@ def detail(sid: str, request: Request, user: dict = council_dep):
 
 @router.post("/submission/{sid}/grade")
 def grade_one(sid: str, request: Request, user: dict = council_dep):
-    """Chấm tự động MỘT giảng viên theo yêu cầu (Admin/Hội đồng) — kiểm thử & chấm thử trước hạn.
+    """Chấm tự động MỘT giảng viên theo yêu cầu (Admin/Hội đồng), chạy nền.
 
-    Chạy nền, không đổi trạng thái hồ sơ (giảng viên vẫn sửa/nộp được trước hạn).
+    - Trước hạn (hồ sơ draft/submitted): chấm thử, GIỮ trạng thái để giảng viên vẫn sửa/nộp được.
+    - Sau hạn (hồ sơ đã khóa): chấm chính thức → chuyển trạng thái 'graded' để Hội đồng phê duyệt.
+    - Hồ sơ đã phê duyệt/công bố: không chấm lại (tránh xóa kết quả đã chốt).
     """
     app = request.app
     store, storage = app.state.store, app.state.storage
     sub = store.get("submissions", sid)
     if not sub:
         raise HTTPException(404)
+    if sub.get("status") in ("approved", "published"):
+        raise HTTPException(400, "Hồ sơ đã được phê duyệt/công bố — không thể chấm lại.")
     if (sub.get("grade_job") or {}).get("running"):
         raise HTTPException(400, "Hồ sơ này đang được chấm")
+    keep_status = sub.get("status") in ("draft", "submitted")  # trước hạn → giữ trạng thái
     grader = create_grader(get_settings(), store)
     store.patch("submissions", sid, {"grade_job": {
         "running": True, "started_at": now_vn().isoformat(),
         "by": user["email"], "grader": grader.name, "error": None,
     }})
     audit.log(store, user, "grade_one", f"submissions/{sid}",
-              note=f"Chấm thử theo yêu cầu (grader={grader.name})")
+              note=f"Chấm theo yêu cầu (grader={grader.name}, "
+                   f"{'chấm thử giữ trạng thái' if keep_status else 'chấm chính thức'})")
 
     def worker():
         job = {"running": False, "finished_at": now_vn().isoformat(),
                "by": user["email"], "grader": grader.name, "error": None}
         try:
-            grade_submission(store, storage, grader, sid, force=True, keep_status=True)
+            grade_submission(store, storage, grader, sid, force=True, keep_status=keep_status)
         except Exception as exc:  # noqa: BLE001 — ghi lỗi để hiển thị, không làm sập tiến trình
             job["error"] = str(exc)
         store.patch("submissions", sid, {"grade_job": job})

@@ -212,17 +212,12 @@ def grade_submission(store, storage, grader: Grader, submission_id: str,
         "status": final_status, "ai_total": ai_total,
         "ai_graded": True, "ai_graded_at": now_vn().isoformat(),
     })
-    # Không ghi đè quyết định đã phê duyệt khi chấm thử lại
-    existing_review = store.get("reviews", submission_id) or {}
-    if existing_review.get("status") in ("approved", "published") and keep_status:
-        store.patch("reviews", submission_id, {"ai_total": ai_total})
-    else:
-        store.put("reviews", submission_id, {
-            "submission_id": submission_id, "status": "pending",
-            "mandatory": mandatory, "mandatory_reason": "; ".join(mandatory_reason),
-            "ai_total": ai_total, "created_at": now_vn().isoformat(),
-            "approved_at": None, "total_final": None, "classification": None, "reviewer": None,
-        })
+    store.put("reviews", submission_id, {
+        "submission_id": submission_id, "status": "pending",
+        "mandatory": mandatory, "mandatory_reason": "; ".join(mandatory_reason),
+        "ai_total": ai_total, "created_at": now_vn().isoformat(),
+        "approved_at": None, "total_final": None, "classification": None, "reviewer": None,
+    })
     return {"submission_id": submission_id, "ai_total": ai_total, "mandatory": mandatory}
 
 

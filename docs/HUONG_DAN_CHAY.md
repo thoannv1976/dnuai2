@@ -94,9 +94,10 @@ GV đăng nhập → kê khai Phần A → nộp sản phẩm + minh chứng B�
 [Tùy chọn] Admin/Hội đồng "Chấm tự động hồ sơ này" để kiểm thử & chấm thử TRƯỚC hạn:
    chấm AI theo rubric, KHÔNG khóa quyền sửa của GV; GV sửa lại thì kết quả thử bị xóa để chấm lại.
 17h00 30/6: Cloud Scheduler khóa hồ sơ + kiểm tra hợp lệ (trước đó 24h tự nhắc mục thiếu)
-Admin "Bắt đầu chấm": Claude chấm từng phần theo rubric — 2 lượt độc lập/tiêu chí,
-   lệch >15% chấm lượt 3 lấy trung vị; thiếu minh chứng trừ ≤50%; đối chiếu Phần G;
-   hồ sơ ≥85 hoặc bất thường → hàng đợi thẩm định bắt buộc
+Chấm: Admin/Hội đồng vào trang Thẩm định, mở TỪNG hồ sơ và bấm "Chấm tự động hồ sơ này"
+   (chấm lần lượt để kiểm soát tiến độ & chi phí — KHÔNG còn chấm toàn bộ tự động).
+   Hồ sơ đã khóa khi chấm sẽ chuyển 'graded'; mỗi tiêu chí 2 lượt độc lập, lệch >15% chấm lượt 3 lấy trung vị;
+   thiếu minh chứng trừ ≤50%; đối chiếu Phần G; hồ sơ ≥85 hoặc bất thường → thẩm định bắt buộc
 Hội đồng xem điểm AI + nhận xét → điều chỉnh (ghi vết) → PHÊ DUYỆT
 Admin CÔNG BỐ → email kết quả từng GV → GV xem điểm/nhận xét, phản hồi trong 3 ngày làm việc
 Báo cáo: dashboard theo khoa, phân loại 4 mức, xuất Excel, Hồ sơ năng lực (in/PDF), danh sách nòng cốt

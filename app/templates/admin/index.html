@@ -5,7 +5,6 @@
 
 {% set q = request.query_params %}
 {% if q.get('locked') %}<div class="bg-emerald-50 border border-emerald-200 rounded-lg p-3 mb-4 text-sm">Đã khóa {{ q.get('locked') }} hồ sơ ({{ q.get('invalid') }} không hợp lệ).</div>{% endif %}
-{% if q.get('grading') %}<div class="bg-emerald-50 border border-emerald-200 rounded-lg p-3 mb-4 text-sm">Đã khởi động phiên chấm tự động — theo dõi trạng thái bên dưới.</div>{% endif %}
 {% if q.get('published') %}<div class="bg-emerald-50 border border-emerald-200 rounded-lg p-3 mb-4 text-sm">Đã công bố {{ q.get('published') }} hồ sơ và gửi email kết quả.</div>{% endif %}
 {% if q.get('reminded') %}<div class="bg-emerald-50 border border-emerald-200 rounded-lg p-3 mb-4 text-sm">Đã gửi {{ q.get('reminded') }} email nhắc hạn.</div>{% endif %}
 
@@ -43,7 +42,7 @@
 
 <div class="grid md:grid-cols-2 gap-5">
   <div class="bg-white rounded-xl shadow p-5">
-    <h2 class="font-semibold">Quy trình chấm tự động</h2>
+    <h2 class="font-semibold">Quy trình chấm</h2>
     <ol class="text-sm text-slate-600 mt-2 space-y-3 list-decimal ml-4">
       <li>
         <b>Khóa hồ sơ & kiểm tra hợp lệ</b> — tự động sau hạn (Cloud Scheduler) hoặc chạy ngay:
@@ -52,24 +51,14 @@
         </form>
       </li>
       <li>
-        <b>Chấm bằng Claude API</b> — mỗi tiêu chí 2 lượt độc lập, lệch >15% chấm lượt 3 lấy trung vị:
-        <form method="post" action="/admin/grade" class="inline" onsubmit="return confirm('Bắt đầu chấm toàn bộ hồ sơ đã khóa & hợp lệ?')">
-          <button class="bg-orange-600 text-white rounded px-3 py-1 text-xs ml-1"
-                  {{ 'disabled' if grading.running }}>Bắt đầu chấm</button>
-        </form>
-        <div class="mt-1 text-xs">
-          {% if grading.running %}
-            <span class="text-amber-600 font-semibold">⏳ Đang chấm... (bắt đầu {{ grading.started_at[:16] | replace('T',' ') }}, bộ chấm: {{ grading.grader }} {{ grading.model or '' }})</span>
-            <script>setTimeout(() => location.reload(), 5000)</script>
-          {% elif grading.stats %}
-            <span class="text-emerald-700">Phiên gần nhất: chấm {{ grading.stats.get('graded', 0) }}/{{ grading.stats.get('total', 0) }} hồ sơ,
-            bỏ qua {{ grading.stats.get('skipped_invalid', 0) }} không hợp lệ, lỗi {{ grading.stats.get('errors', []) | length }}</span>
-            {% for e in grading.stats.get('errors', []) %}<div class="text-red-500">{{ e.submission_id }}: {{ e.error }}</div>{% endfor %}
-          {% endif %}
-        </div>
+        <b>Chấm AI lần lượt từng hồ sơ</b> — Admin/Hội đồng vào
+        <a href="/council" class="text-orange-700 hover:underline">trang Thẩm định</a>, mở từng giảng viên và bấm
+        <b>“Chấm tự động hồ sơ này”</b> (mỗi tiêu chí 2 lượt độc lập, lệch &gt;15% chấm lượt 3 lấy trung vị).
+        <div class="mt-1 text-xs text-slate-500">Chấm theo từng bài để kiểm soát tiến độ và chi phí — không chấm hàng loạt tự động.
+          Theo dõi token/chi phí tại <a href="/admin/ai-usage" class="text-orange-700 hover:underline">Chi phí AI</a>.</div>
       </li>
-      <li><b>Hội đồng thẩm định</b> — <a href="/council" class="text-orange-700 hover:underline">trang thẩm định</a>
-        (hồ sơ ≥85 điểm hoặc bất thường minh chứng: bắt buộc)</li>
+      <li><b>Hội đồng điều chỉnh & phê duyệt</b> tại <a href="/council" class="text-orange-700 hover:underline">trang thẩm định</a>
+        (hồ sơ ≥85 điểm hoặc bất thường minh chứng: thẩm định bắt buộc)</li>
       <li>
         <b>Công bố kết quả</b> — gửi email kèm nhận xét đến từng giảng viên:
         <form method="post" action="/admin/publish" class="inline" onsubmit="return confirm('Công bố mọi hồ sơ đã phê duyệt?')">

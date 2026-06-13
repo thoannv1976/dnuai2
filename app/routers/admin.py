@@ -1,9 +1,8 @@
-"""Phân hệ quản trị: danh sách giảng viên, cấu hình, vận hành chấm, công bố, sao lưu."""
+"""Phân hệ quản trị: danh sách giảng viên, cấu hình, công bố, tải sản phẩm, sao lưu."""
 from __future__ import annotations
 
 import csv
 import io
-import threading
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile
 from fastapi.responses import RedirectResponse
@@ -13,8 +12,6 @@ from app.config import ROLE_ADMIN, ROLE_COUNCIL, ROLE_LECTURER, get_settings, no
 from app.rubric import get_rubric
 from app.security import hash_password
 from app.services import audit
-from app.services.grading.engine import run_grading
-from app.services.grading.graders import create_grader
 from app.services.ops import get_timeline, lock_all, publish_all, send_reminders
 
 router = APIRouter(prefix="/admin")
@@ -23,10 +20,6 @@ admin_dep = Depends(require_role(ROLE_ADMIN))
 
 def render(request: Request, template: str, user: dict, **ctx):
     return request.app.state.templates.TemplateResponse(request, template, {"user": user, "now": now_vn(), **ctx})
-
-
-def _grading_status(store) -> dict:
-    return store.get("config", "grading_status") or {"running": False}
 
 
 @router.get("")
@@ -44,11 +37,12 @@ def index(request: Request, user: dict = admin_dep):
         "council": sum(1 for u in users if u["role"] == ROLE_COUNCIL),
         "submissions": len(subs),
         "by_status": by_status,
+        "graded": by_status.get("graded", 0) + by_status.get("approved", 0) + by_status.get("published", 0),
         "appeals_open": len(store.find("appeals", status="open")),
     }
     settings = get_settings()
     return render(request, "admin/index.html", user, counts=counts, timeline=get_timeline(store),
-                  grading=_grading_status(store), settings=settings, ai_cfg=get_ai_config(store))
+                  settings=settings, ai_cfg=get_ai_config(store))
 
 
 @router.post("/lock")
@@ -62,34 +56,6 @@ def remind(request: Request, user: dict = admin_dep):
     sent = send_reminders(request.app.state.store)
     audit.log(request.app.state.store, user, "send_reminders", "users", note=f"Gửi {sent} email nhắc hạn")
     return RedirectResponse(f"/admin?reminded={sent}", status_code=303)
-
-
-@router.post("/grade")
-def grade(request: Request, force: bool = Form(False), user: dict = admin_dep):
-    store, storage = request.app.state.store, request.app.state.storage
-    status = _grading_status(store)
-    if status.get("running"):
-        raise HTTPException(400, "Đang có phiên chấm chạy")
-    settings = get_settings()
-    grader = create_grader(settings, store)
-    store.put("config", "grading_status", {
-        "id": "grading_status", "running": True, "started_at": now_vn().isoformat(),
-        "grader": grader.name, "model": getattr(grader, "model", ""), "stats": None,
-    })
-    audit.log(store, user, "start_grading", "submissions", note=f"grader={grader.name}")
-
-    def worker():
-        try:
-            stats = run_grading(store, storage, grader, force=force)
-        except Exception as exc:  # noqa: BLE001 — ghi nhận lỗi tổng để hiển thị
-            stats = {"fatal_error": str(exc)}
-        store.put("config", "grading_status", {
-            "id": "grading_status", "running": False, "finished_at": now_vn().isoformat(),
-            "grader": grader.name, "stats": stats,
-        })
-
-    threading.Thread(target=worker, daemon=True).start()
-    return RedirectResponse("/admin?grading=started", status_code=303)
 
 
 @router.post("/publish")
