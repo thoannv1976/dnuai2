@@ -1,20 +1,16 @@
-"""Xác thực & phân quyền.
+"""Xác thực & phân quyền — đăng nhập bằng ID (email hoặc mã giảng viên) + mật khẩu.
 
-- Chế độ local: đăng nhập giả lập (chọn tài khoản demo) phục vụ phát triển/demo.
-- Chế độ gcp: Google OAuth 2.0 (Google Workspace SSO), chỉ chấp nhận email thuộc
-  domain DNU và đã có trong danh sách giảng viên/hội đồng/quản trị.
-Phiên đăng nhập lưu trong cookie ký (itsdangerous), 12 giờ.
+Mật khẩu băm PBKDF2 (app/security.py). Phiên đăng nhập lưu trong cookie ký
+(itsdangerous), hết hạn sau 12 giờ. Phân quyền 3 vai trò: giảng viên / hội đồng / quản trị.
 """
 from __future__ import annotations
 
-import urllib.parse
-
-import httpx
 from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from itsdangerous import BadSignature, URLSafeTimedSerializer
 
 from app.config import ROLE_ADMIN, ROLE_COUNCIL, ROLE_LECTURER, get_settings
+from app.security import hash_password, verify_password
 
 SESSION_COOKIE = "dnu_session"
 SESSION_MAX_AGE = 12 * 3600
@@ -67,6 +63,23 @@ def require_role(*roles: str):
     return dep
 
 
+def find_by_login(store, login_id: str) -> dict | None:
+    """Tìm người dùng theo email (không phân biệt hoa thường) hoặc mã giảng viên."""
+    login_id = login_id.strip()
+    user = store.find_one("users", email=login_id.lower())
+    if user:
+        return user
+    # so khớp mã GV (không phân biệt hoa thường)
+    for u in store.all("users"):
+        if (u.get("ma_gv") or "").strip().lower() == login_id.lower() and login_id:
+            return u
+    return None
+
+
+def set_password(store, user: dict, password: str) -> None:
+    store.patch("users", user["id"], {"password_hash": hash_password(password)})
+
+
 def _login_ok(user: dict) -> RedirectResponse:
     dest = {ROLE_LECTURER: "/lecturer", ROLE_COUNCIL: "/council", ROLE_ADMIN: "/admin"}.get(user["role"], "/")
     resp = RedirectResponse(dest, status_code=303)
@@ -79,82 +92,51 @@ def _login_ok(user: dict) -> RedirectResponse:
 
 
 @router.get("/login")
-def login_page(request: Request):
-    settings = get_settings()
-    demo_users = []
-    if settings.auth_mode == "dev":
-        demo_users = sorted(request.app.state.store.all("users"), key=lambda u: (u["role"], u.get("ma_gv", "")))
+def login_page(request: Request, error: str = ""):
     return request.app.state.templates.TemplateResponse(
-        request, "login.html",
-        {"settings": settings, "demo_users": demo_users, "user": None},
+        request, "login.html", {"settings": get_settings(), "user": None, "error": error},
     )
 
 
-@router.post("/login/dev")
-def login_dev(request: Request, email: str = Form(...)):
-    if get_settings().auth_mode != "dev":
-        raise HTTPException(404)
-    user = request.app.state.store.find_one("users", email=email.strip().lower())
-    if not user:
-        raise HTTPException(400, "Email không có trong danh sách người dùng (chạy scripts/seed_demo.py trước)")
-    return _login_ok(user)
-
-
-@router.get("/auth/google")
-def google_start(request: Request):
-    settings = get_settings()
-    if not settings.google_client_id:
-        raise HTTPException(404, "Chưa cấu hình Google SSO")
-    redirect_uri = str(request.url_for("google_callback"))
-    params = {
-        "client_id": settings.google_client_id,
-        "redirect_uri": redirect_uri,
-        "response_type": "code",
-        "scope": "openid email profile",
-        "hd": settings.allowed_email_domains[0] if settings.allowed_email_domains else "",
-        "prompt": "select_account",
-    }
-    return RedirectResponse("https://accounts.google.com/o/oauth2/v2/auth?" + urllib.parse.urlencode(params))
-
-
-@router.get("/auth/google/callback", name="google_callback")
-def google_callback(request: Request, code: str = ""):
-    settings = get_settings()
-    if not code:
-        raise HTTPException(400, "Thiếu mã xác thực từ Google")
-    token_resp = httpx.post(
-        "https://oauth2.googleapis.com/token",
-        data={
-            "code": code,
-            "client_id": settings.google_client_id,
-            "client_secret": settings.google_client_secret,
-            "redirect_uri": str(request.url_for("google_callback")),
-            "grant_type": "authorization_code",
-        },
-        timeout=15,
-    )
-    if token_resp.status_code != 200:
-        raise HTTPException(400, "Không đổi được mã xác thực Google")
-    access_token = token_resp.json().get("access_token")
-    info = httpx.get(
-        "https://openidconnect.googleapis.com/v1/userinfo",
-        headers={"Authorization": f"Bearer {access_token}"},
-        timeout=15,
-    ).json()
-    email = (info.get("email") or "").lower()
-    if not info.get("email_verified", False):
-        raise HTTPException(403, "Email Google chưa được xác minh")
-    # Quy tắc: đăng nhập được khi email CÓ TRONG danh sách người dùng do quản trị quản lý
-    # (domain DNU chỉ là gợi ý chọn tài khoản; admin có thể thêm email ngoài domain, vd tài khoản vận hành)
-    user = request.app.state.store.find_one("users", email=email)
-    if not user:
-        raise HTTPException(
-            403,
-            f"Email {email} chưa có trong danh sách người dùng của hệ thống. "
-            f"Giảng viên DNU dùng email @{settings.allowed_email_domains[0] if settings.allowed_email_domains else 'dainam.edu.vn'} "
-            "đã được quản trị viên import; nếu cần hỗ trợ hãy liên hệ Ban tổ chức.",
+@router.post("/login")
+def login(request: Request, login_id: str = Form(...), password: str = Form(...)):
+    store = request.app.state.store
+    user = find_by_login(store, login_id)
+    if not user or not user.get("active", True) or not verify_password(password, user.get("password_hash")):
+        return request.app.state.templates.TemplateResponse(
+            request, "login.html",
+            {"settings": get_settings(), "user": None,
+             "error": "Sai ID hoặc mật khẩu (hoặc tài khoản đã bị khóa)."},
+            status_code=401,
         )
     return _login_ok(user)
+
+
+@router.get("/change-password")
+def change_password_page(request: Request, error: str = "", ok: str = ""):
+    user = current_user(request)
+    if not user:
+        return RedirectResponse("/login", status_code=303)
+    return request.app.state.templates.TemplateResponse(
+        request, "change_password.html", {"user": user, "error": error, "ok": ok},
+    )
+
+
+@router.post("/change-password")
+def change_password(request: Request, current: str = Form(...),
+                    new_password: str = Form(...), confirm: str = Form(...)):
+    user = current_user(request)
+    if not user:
+        return RedirectResponse("/login", status_code=303)
+    store = request.app.state.store
+    if not verify_password(current, user.get("password_hash")):
+        return RedirectResponse("/change-password?error=Mật+khẩu+hiện+tại+không+đúng", status_code=303)
+    if len(new_password) < 6:
+        return RedirectResponse("/change-password?error=Mật+khẩu+mới+tối+thiểu+6+ký+tự", status_code=303)
+    if new_password != confirm:
+        return RedirectResponse("/change-password?error=Xác+nhận+mật+khẩu+không+khớp", status_code=303)
+    set_password(store, user, new_password)
+    return RedirectResponse("/change-password?ok=1", status_code=303)
 
 
 @router.get("/logout")

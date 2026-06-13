@@ -34,14 +34,15 @@
         <span class="bg-orange-800 rounded px-2 py-1">{{ user.ho_ten or user.email }}
           <span class="opacity-75">({{ {'lecturer':'Giảng viên','council':'Hội đồng','admin':'Quản trị'}[user.role] }})</span>
         </span>
+        <a class="hover:underline" href="/change-password">Đổi mật khẩu</a>
         <a class="hover:underline" href="/logout">Thoát</a>
       {% endif %}
     </div>
   </div>
 </nav>
-{% if auth_mode == 'dev' %}
+{% if app_mode == 'local' %}
 <div class="bg-amber-100 text-amber-900 text-center text-xs py-1 no-print">
-  Chế độ thử nghiệm — đăng nhập giả lập đang bật{% if app_mode == 'local' %}, dữ liệu lưu cục bộ{% endif %}
+  Chế độ thử nghiệm (local) — dữ liệu lưu cục bộ, email ghi log
 </div>
 {% endif %}
 <main class="max-w-6xl mx-auto px-4 py-6">

@@ -8,40 +8,33 @@
       Hệ thống đánh giá năng lực ứng dụng AI của giảng viên<br>Trường Đại học Đại Nam — 2026
     </p>
 
-    {% if settings.auth_mode == 'google' %}
-      <a href="/auth/google"
-         class="mt-8 w-full flex items-center justify-center gap-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg py-3 font-semibold">
-        Đăng nhập bằng email DNU (Google)
-      </a>
-      <p class="text-xs text-slate-400 mt-3 text-center">Dành cho email trong danh sách của hệ thống
-        (giảng viên DNU dùng email @{{ settings.allowed_email_domains | join(', @') }})</p>
-    {% else %}
-      <form method="post" action="/login/dev" class="mt-6 space-y-3">
-        <label class="block text-sm font-medium">Email (chế độ thử nghiệm)</label>
-        <input name="email" required placeholder="ví dụ: gv001@dainam.edu.vn"
-               class="w-full border rounded-lg px-3 py-2">
-        <button class="w-full bg-orange-600 hover:bg-orange-700 text-white rounded-lg py-2.5 font-semibold">
-          Đăng nhập
-        </button>
-      </form>
-      {% if demo_users %}
-      <div class="mt-6">
-        <p class="text-xs uppercase text-slate-400 font-semibold mb-2">Tài khoản demo</p>
-        <div class="space-y-1 max-h-56 overflow-auto">
-          {% for u in demo_users %}
-          <form method="post" action="/login/dev">
-            <input type="hidden" name="email" value="{{ u.email }}">
-            <button class="w-full text-left text-sm border rounded px-3 py-1.5 hover:bg-orange-50 flex justify-between">
-              <span>{{ u.ho_ten or u.email }}</span>
-              <span class="text-slate-400">{{ {'lecturer':'Giảng viên','council':'Hội đồng','admin':'Quản trị'}[u.role] }}</span>
-            </button>
-          </form>
-          {% endfor %}
-        </div>
+    {% if error %}
+    <div class="mt-5 bg-red-50 border border-red-200 text-red-700 rounded-lg p-3 text-sm">{{ error }}</div>
+    {% endif %}
+
+    <form method="post" action="/login" class="mt-6 space-y-4">
+      <div>
+        <label class="block text-sm font-medium">ID đăng nhập</label>
+        <input name="login_id" required autofocus placeholder="Email hoặc mã giảng viên (vd: gv001@dainam.edu.vn hoặc GV001)"
+               class="mt-1 w-full border rounded-lg px-3 py-2">
       </div>
-      {% else %}
-      <p class="text-xs text-amber-600 mt-4">Chưa có người dùng — chạy <code>python scripts/seed_demo.py</code> để tạo dữ liệu demo.</p>
-      {% endif %}
+      <div>
+        <label class="block text-sm font-medium">Mật khẩu</label>
+        <input name="password" type="password" required class="mt-1 w-full border rounded-lg px-3 py-2">
+      </div>
+      <button class="w-full bg-orange-600 hover:bg-orange-700 text-white rounded-lg py-2.5 font-semibold">
+        Đăng nhập
+      </button>
+    </form>
+
+    <p class="text-xs text-slate-400 mt-4 text-center">
+      Quên mật khẩu hoặc chưa có tài khoản? Liên hệ quản trị viên / Ban tổ chức.
+    </p>
+    {% if app_mode == 'local' %}
+    <p class="text-xs text-amber-600 mt-3 text-center">
+      Chế độ thử nghiệm: chạy <code>python scripts/seed_demo.py</code> để tạo tài khoản demo
+      (mật khẩu mặc định <code>demo123</code>).
+    </p>
     {% endif %}
   </div>
 </div>

@@ -27,7 +27,7 @@ def create_app() -> FastAPI:
     app.state.store = create_store(settings)
     app.state.storage = create_storage(settings)
     templates = Jinja2Templates(directory=str(settings.base_dir / "app" / "templates"))
-    templates.env.globals.update(app_mode=settings.app_mode, auth_mode=settings.auth_mode)
+    templates.env.globals.update(app_mode=settings.app_mode)
     app.state.templates = templates
 
     app.mount("/static", StaticFiles(directory=str(settings.base_dir / "app" / "static")), name="static")
@@ -50,19 +50,27 @@ def create_app() -> FastAPI:
 
         seed(app.state.store, app.state.storage)
 
-    # ADMIN_EMAILS: bảo đảm các email này là quản trị viên (tạo mới hoặc nâng quyền)
+    # ADMIN_EMAILS: bảo đảm các email này là quản trị viên (tạo mới hoặc nâng quyền) + đặt mật khẩu
     from app.config import ROLE_ADMIN as _ADMIN
+    from app.security import hash_password
 
     for email in settings.admin_emails:
         existing = app.state.store.find_one("users", email=email)
         if existing:
+            fields = {}
             if existing.get("role") != _ADMIN or not existing.get("active", True):
-                app.state.store.patch("users", existing["id"], {"role": _ADMIN, "active": True})
-                logging.getLogger("dnu").info("Nâng quyền quản trị: %s", email)
+                fields.update({"role": _ADMIN, "active": True})
+            # Đặt mật khẩu admin nếu cấu hình ADMIN_PASSWORD và tài khoản chưa có mật khẩu
+            if settings.admin_password and not existing.get("password_hash"):
+                fields["password_hash"] = hash_password(settings.admin_password)
+            if fields:
+                app.state.store.patch("users", existing["id"], fields)
+                logging.getLogger("dnu").info("Cập nhật quản trị viên: %s", email)
         else:
             app.state.store.add("users", {
                 "email": email, "ho_ten": email.split("@")[0], "ma_gv": "",
                 "khoa": "", "bo_mon": "", "role": _ADMIN, "active": True,
+                "password_hash": hash_password(settings.admin_password) if settings.admin_password else None,
             })
             logging.getLogger("dnu").info("Tạo quản trị viên từ ADMIN_EMAILS: %s", email)
 

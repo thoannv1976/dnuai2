@@ -2,7 +2,7 @@
 
 ## 1. Chạy thử nghiệm trên máy (chế độ local)
 
-Không cần Google Cloud — dữ liệu lưu SQLite + thư mục `data/`, đăng nhập giả lập, email ghi log.
+Không cần Google Cloud — dữ liệu lưu SQLite + thư mục `data/`, email ghi log.
 
 ```bash
 pip install -r requirements.txt
@@ -11,10 +11,11 @@ pip install -r requirements.txt
 python scripts/seed_demo.py
 
 uvicorn app.main:app --reload
-# → http://localhost:8000 — chọn tài khoản demo ở trang đăng nhập
+# → http://localhost:8000 — đăng nhập bằng ID + mật khẩu
 ```
 
-**Tài khoản demo:** `gv001@dainam.edu.vn` (giảng viên, có hồ sơ mẫu) · `hoidong@dainam.edu.vn` (hội đồng) · `admin@dainam.edu.vn` (quản trị).
+**Đăng nhập:** bằng **ID (email hoặc mã giảng viên) + mật khẩu**. Tài khoản demo (mật khẩu đều là `demo123`):
+`admin@dainam.edu.vn` (quản trị) · `hoidong@dainam.edu.vn` (hội đồng) · `gv001@dainam.edu.vn` hoặc mã `GV001` (giảng viên, có hồ sơ mẫu). Mọi người dùng có thể tự **Đổi mật khẩu** sau khi đăng nhập; quản trị viên đặt lại mật khẩu / thêm người dùng tại **/admin/users**.
 
 **Demo trọn luồng:** đăng nhập admin → *Khóa ngay* → *Bắt đầu chấm* (chờ vài giây) → đăng nhập hội đồng → thẩm định/điều chỉnh → *Phê duyệt* → admin *Công bố* → đăng nhập gv001 xem kết quả + gửi phản hồi.
 
@@ -33,19 +34,21 @@ Không có API key → hệ thống tự dùng bộ chấm `mock` (điểm giả
 ```bash
 pip install -r requirements-dev.txt
 ruff check app tests scripts
-pytest -q          # 24 test: validation, logic 2 lượt + trung vị, phân quyền, e2e trọn luồng
+pytest -q          # validation, logic 2 lượt + trung vị, phân quyền, đăng nhập, e2e trọn luồng
 ```
 
 ## 3. Triển khai production (Google Cloud Run)
 
 ```bash
-# Một lần: tạo Firestore (Native mode), bucket GCS, OAuth Client (Google Workspace)
+# Một lần: tạo Firestore (Native mode) + bucket GCS
 gcloud run deploy dnu-ai-assess --source . --region asia-southeast1 \
-  --min-instances 1 \
-  --set-env-vars APP_MODE=gcp,GCS_BUCKET=<bucket>,ALLOWED_EMAIL_DOMAINS=dainam.edu.vn \
-  --set-env-vars GOOGLE_OAUTH_CLIENT_ID=...,SMTP_HOST=...,SMTP_USER=...,MAIL_FROM=... \
-  --set-secrets ANTHROPIC_API_KEY=anthropic-key:latest,SECRET_KEY=app-secret:latest,GOOGLE_OAUTH_CLIENT_SECRET=oauth-secret:latest,SMTP_PASSWORD=smtp-pass:latest,CRON_TOKEN=cron-token:latest
+  --allow-unauthenticated --min-instances 1 --memory 1Gi \
+  --set-env-vars APP_MODE=gcp,GCS_BUCKET=<bucket>,ADMIN_EMAILS=admin@dainam.edu.vn \
+  --set-env-vars SMTP_HOST=...,SMTP_USER=...,MAIL_FROM=... \
+  --set-secrets ANTHROPIC_API_KEY=anthropic-key:latest,SECRET_KEY=app-secret:latest,ADMIN_PASSWORD=admin-pass:latest,SMTP_PASSWORD=smtp-pass:latest,CRON_TOKEN=cron-token:latest
 ```
+
+`ADMIN_EMAILS` + `ADMIN_PASSWORD` tạo sẵn tài khoản quản trị đầu tiên để đăng nhập ngay sau khi deploy.
 
 Cloud Scheduler (nhắc hạn 24h + khóa hồ sơ đúng 17h00 30/6):
 
@@ -55,23 +58,27 @@ gcloud scheduler jobs create http dnu-cron --schedule "*/30 * * * *" \
   --headers X-Cron-Token=<CRON_TOKEN> --time-zone "Asia/Ho_Chi_Minh"
 ```
 
-Sau triển khai: vào **/admin/users** import danh sách giảng viên (CSV: `ma_gv,ho_ten,email,khoa,bo_mon,role`).
+Sau triển khai: đăng nhập admin → **/admin/users** import danh sách giảng viên
+(CSV: `ma_gv,ho_ten,email,khoa,bo_mon,role,password`). Không có cột `password` → dùng mật khẩu mặc định `DEFAULT_PASSWORD`.
 
 ## 4. Biến môi trường chính
 
 | Biến | Mặc định | Ý nghĩa |
 |---|---|---|
-| `APP_MODE` | `local` | `local` (SQLite + tệp cục bộ) / `gcp` (Firestore + GCS + SSO) |
+| `APP_MODE` | `local` | `local` (SQLite + tệp cục bộ) / `gcp` (Firestore + GCS) |
 | `ANTHROPIC_API_KEY` | — | Khóa Claude API; không có → bộ chấm mock |
 | `GRADING_MODEL` | `claude-opus-4-8` | Model chấm điểm |
 | `GRADER` | tự động | Ép `mock` hoặc `claude` |
 | `DEADLINE` | `2026-06-30T17:00:00+07:00` | Hạn nộp (admin sửa được trong /admin/config) |
-| `AUTH_MODE` | theo APP_MODE | `dev` (chọn tài khoản — thử nghiệm) / `google` (SSO). Cho phép chạy Firestore/GCS nhưng vẫn đăng nhập thử nghiệm khi chưa có OAuth |
-| `ADMIN_EMAILS` | — | Danh sách email (phân cách dấu phẩy) được tự tạo/nâng quyền **quản trị viên** khi khởi động |
-| `SEED_DEMO` | — | `1`: tự tạo tài khoản + hồ sơ demo khi khởi động (chỉ khi chưa có người dùng) |
-| `ALLOWED_EMAIL_DOMAINS` | `dainam.edu.vn` | Gợi ý domain ở màn hình chọn tài khoản Google. Quy tắc đăng nhập SSO: email phải **có trong danh sách người dùng** của hệ thống |
+| `ADMIN_EMAILS` | — | Email (phân cách dấu phẩy) được tự tạo/nâng quyền **quản trị viên** khi khởi động |
+| `ADMIN_PASSWORD` | — | Mật khẩu đặt cho tài khoản trong `ADMIN_EMAILS` (nếu chưa có mật khẩu) |
+| `DEFAULT_PASSWORD` | `DNU@2026` | Mật khẩu mặc định cho người dùng import CSV không kèm cột password |
+| `SEED_DEMO` | — | `1`: tự tạo tài khoản + hồ sơ demo khi khởi động (mật khẩu `demo123`) |
+| `SECRET_KEY` | dev | Khóa ký cookie phiên đăng nhập (đặt giá trị ngẫu nhiên ở production) |
 | `CRON_TOKEN` | dev | Token bảo vệ endpoint /tasks/cron |
 | `DATA_DIR` | `./data` | Thư mục dữ liệu (chế độ local) |
+
+> **Đăng nhập** dùng **ID (email hoặc mã giảng viên) + mật khẩu** băm PBKDF2. Không còn dùng Google SSO.
 
 ## 5. Cấu trúc luồng nghiệp vụ
 

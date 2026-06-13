@@ -6,39 +6,80 @@
 {% if q.get('added') is not none %}
 <div class="bg-emerald-50 border border-emerald-200 rounded-lg p-3 mb-4 text-sm">Đã thêm {{ q.get('added') }}, cập nhật {{ q.get('updated') }} người dùng.</div>
 {% endif %}
+{% if q.get('pwset') %}
+<div class="bg-emerald-50 border border-emerald-200 rounded-lg p-3 mb-4 text-sm">Đã đặt lại mật khẩu.</div>
+{% endif %}
 
 <div class="grid lg:grid-cols-3 gap-5">
-  <div class="lg:col-span-2 bg-white rounded-xl shadow overflow-x-auto">
+  <div class="lg:col-span-2 bg-white rounded-xl shadow overflow-x-auto" x-data="{pw: null}">
     <table class="w-full text-sm">
       <thead><tr class="text-left text-xs text-slate-400 border-b">
         <th class="px-4 py-2">Mã GV</th><th class="px-2 py-2">Họ tên</th><th class="px-2 py-2">Email</th>
-        <th class="px-2 py-2">Khoa</th><th class="px-2 py-2">Bộ môn</th><th class="px-2 py-2">Vai trò</th>
+        <th class="px-2 py-2">Khoa</th><th class="px-2 py-2">Vai trò</th><th class="px-2 py-2"></th>
       </tr></thead>
       <tbody>
         {% for u in users %}
-        <tr class="border-b last:border-0">
+        <tr class="border-b last:border-0 {{ 'opacity-50' if not u.get('active', True) }}">
           <td class="px-4 py-2">{{ u.ma_gv }}</td>
           <td class="px-2 py-2 font-medium">{{ u.ho_ten }}</td>
           <td class="px-2 py-2 text-slate-500">{{ u.email }}</td>
           <td class="px-2 py-2">{{ u.khoa }}</td>
-          <td class="px-2 py-2">{{ u.bo_mon }}</td>
           <td class="px-2 py-2">{{ {'lecturer':'Giảng viên','council':'Hội đồng','admin':'Quản trị'}[u.role] }}</td>
+          <td class="px-2 py-2 text-right whitespace-nowrap">
+            <button class="text-orange-700 text-xs hover:underline" @click="pw = (pw === '{{ u.id }}' ? null : '{{ u.id }}')">Đặt mật khẩu</button>
+            <form method="post" action="/admin/users/{{ u.id }}/toggle" class="inline"
+                  onsubmit="return confirm('{{ 'Mở khóa' if not u.get('active', True) else 'Khóa' }} tài khoản này?')">
+              <button class="text-xs hover:underline {{ 'text-emerald-600' if not u.get('active', True) else 'text-red-500' }} ml-2">
+                {{ 'Mở khóa' if not u.get('active', True) else 'Khóa' }}</button>
+            </form>
+            <form method="post" action="/admin/users/{{ u.id }}/password" class="mt-1 flex gap-1 justify-end" x-show="pw === '{{ u.id }}'" x-cloak>
+              <input name="new_password" type="text" required minlength="6" placeholder="Mật khẩu mới"
+                     class="border rounded px-2 py-1 text-xs w-32">
+              <button class="bg-slate-700 text-white text-xs rounded px-2">Lưu</button>
+            </form>
+          </td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
-  <div class="bg-white rounded-xl shadow p-5">
-    <h2 class="font-semibold text-sm">Import danh sách (CSV)</h2>
-    <p class="text-xs text-slate-400 mt-1">Cột: <code>ma_gv,ho_ten,email,khoa,bo_mon,role</code><br>
-      role: lecturer / council / admin (mặc định lecturer). Email trùng sẽ được cập nhật.</p>
-    <form method="post" action="/admin/users/import" enctype="multipart/form-data" class="mt-3 space-y-2">
-      <input type="file" name="file" accept=".csv" class="block w-full text-sm">
-      <p class="text-center text-xs text-slate-400">— hoặc dán CSV —</p>
-      <textarea name="csv_text" rows="6" class="w-full border rounded-lg px-2 py-1.5 text-xs font-mono"
-        placeholder="ma_gv,ho_ten,email,khoa,bo_mon,role&#10;GV010,Nguyễn Văn A,gv010@dainam.edu.vn,CNTT,KTPM,lecturer"></textarea>
-      <button class="bg-orange-600 text-white rounded-lg px-4 py-2 text-sm font-semibold w-full">Import</button>
-    </form>
+
+  <div class="space-y-5">
+    <div class="bg-white rounded-xl shadow p-5">
+      <h2 class="font-semibold text-sm">Thêm người dùng</h2>
+      <form method="post" action="/admin/users/add" class="mt-3 space-y-2 text-sm">
+        <input name="ho_ten" required placeholder="Họ tên" class="w-full border rounded-lg px-3 py-1.5">
+        <input name="email" type="email" required placeholder="Email" class="w-full border rounded-lg px-3 py-1.5">
+        <div class="grid grid-cols-2 gap-2">
+          <input name="ma_gv" placeholder="Mã GV" class="border rounded-lg px-3 py-1.5">
+          <select name="role" class="border rounded-lg px-2 py-1.5">
+            <option value="lecturer">Giảng viên</option>
+            <option value="council">Hội đồng</option>
+            <option value="admin">Quản trị</option>
+          </select>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <input name="khoa" placeholder="Khoa" class="border rounded-lg px-3 py-1.5">
+          <input name="bo_mon" placeholder="Bộ môn" class="border rounded-lg px-3 py-1.5">
+        </div>
+        <input name="password" type="text" required minlength="6" placeholder="Mật khẩu (≥6 ký tự)" class="w-full border rounded-lg px-3 py-1.5">
+        <button class="bg-orange-600 text-white rounded-lg px-4 py-2 font-semibold w-full">Thêm</button>
+      </form>
+    </div>
+
+    <div class="bg-white rounded-xl shadow p-5">
+      <h2 class="font-semibold text-sm">Import danh sách (CSV)</h2>
+      <p class="text-xs text-slate-400 mt-1">Cột: <code>ma_gv,ho_ten,email,khoa,bo_mon,role,password</code><br>
+        role mặc định lecturer. Không có password → dùng mật khẩu mặc định
+        <code>{{ settings.default_password }}</code>. Email trùng sẽ được cập nhật.</p>
+      <form method="post" action="/admin/users/import" enctype="multipart/form-data" class="mt-3 space-y-2">
+        <input type="file" name="file" accept=".csv" class="block w-full text-sm">
+        <p class="text-center text-xs text-slate-400">— hoặc dán CSV —</p>
+        <textarea name="csv_text" rows="5" class="w-full border rounded-lg px-2 py-1.5 text-xs font-mono"
+          placeholder="ma_gv,ho_ten,email,khoa,bo_mon,role,password&#10;GV010,Nguyễn Văn A,gv010@dainam.edu.vn,CNTT,KTPM,lecturer,MatKhau123"></textarea>
+        <button class="bg-orange-600 text-white rounded-lg px-4 py-2 text-sm font-semibold w-full">Import</button>
+      </form>
+    </div>
   </div>
 </div>
 {% endblock %}

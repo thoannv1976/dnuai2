@@ -8,9 +8,10 @@ import threading
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile
 from fastapi.responses import RedirectResponse
 
-from app.auth import require_role
+from app.auth import require_role, set_password
 from app.config import ROLE_ADMIN, ROLE_COUNCIL, ROLE_LECTURER, get_settings, now_vn
 from app.rubric import get_rubric
+from app.security import hash_password
 from app.services import audit
 from app.services.grading.engine import run_grading
 from app.services.grading.graders import create_grader
@@ -101,13 +102,17 @@ def publish(request: Request, user: dict = admin_dep):
 def users_page(request: Request, user: dict = admin_dep):
     store = request.app.state.store
     users = sorted(store.all("users"), key=lambda u: (u["role"], u.get("khoa", ""), u.get("ma_gv", "")))
-    return render(request, "admin/users.html", user, users=users)
+    return render(request, "admin/users.html", user, users=users, settings=get_settings())
 
 
 @router.post("/users/import")
 async def users_import(request: Request, file: UploadFile = None, csv_text: str = Form(""), user: dict = admin_dep):
-    """Import CSV: ma_gv,ho_ten,email,khoa,bo_mon,role(lecturer|council|admin)."""
+    """Import CSV: ma_gv,ho_ten,email,khoa,bo_mon,role(lecturer|council|admin),password(tùy chọn).
+
+    Người dùng mới không kèm password sẽ nhận mật khẩu mặc định (DEFAULT_PASSWORD, mặc định DNU@2026).
+    """
     store = request.app.state.store
+    settings = get_settings()
     raw = ""
     if file is not None and file.filename:
         raw = (await file.read()).decode("utf-8-sig")
@@ -127,15 +132,65 @@ async def users_import(request: Request, file: UploadFile = None, csv_text: str 
             "ma_gv": (row.get("ma_gv") or "").strip(), "khoa": (row.get("khoa") or "").strip(),
             "bo_mon": (row.get("bo_mon") or "").strip(), "role": role, "active": True,
         }
+        pw = (row.get("password") or "").strip()
         existing = store.find_one("users", email=email)
         if existing:
+            if pw:
+                doc["password_hash"] = hash_password(pw)
             store.patch("users", existing["id"], doc)
             updated += 1
         else:
+            doc["password_hash"] = hash_password(pw or settings.default_password)
             store.add("users", doc)
             added += 1
     audit.log(store, user, "import_users", "users", note=f"Thêm {added}, cập nhật {updated}")
     return RedirectResponse(f"/admin/users?added={added}&updated={updated}", status_code=303)
+
+
+@router.post("/users/add")
+def users_add(request: Request, ho_ten: str = Form(...), email: str = Form(...), ma_gv: str = Form(""),
+              khoa: str = Form(""), bo_mon: str = Form(""), role: str = Form(ROLE_LECTURER),
+              password: str = Form(...), user: dict = admin_dep):
+    store = request.app.state.store
+    email = email.strip().lower()
+    if role not in (ROLE_LECTURER, ROLE_COUNCIL, ROLE_ADMIN):
+        raise HTTPException(400, "Vai trò không hợp lệ")
+    if len(password) < 6:
+        raise HTTPException(400, "Mật khẩu tối thiểu 6 ký tự")
+    if store.find_one("users", email=email):
+        raise HTTPException(400, "Email đã tồn tại")
+    store.add("users", {
+        "email": email, "ho_ten": ho_ten.strip(), "ma_gv": ma_gv.strip(),
+        "khoa": khoa.strip(), "bo_mon": bo_mon.strip(), "role": role, "active": True,
+        "password_hash": hash_password(password),
+    })
+    audit.log(store, user, "add_user", f"users/{email}", note=f"role={role}")
+    return RedirectResponse("/admin/users?added=1&updated=0", status_code=303)
+
+
+@router.post("/users/{uid}/password")
+def users_set_password(uid: str, request: Request, new_password: str = Form(...), user: dict = admin_dep):
+    store = request.app.state.store
+    target = store.get("users", uid)
+    if not target:
+        raise HTTPException(404)
+    if len(new_password) < 6:
+        raise HTTPException(400, "Mật khẩu tối thiểu 6 ký tự")
+    set_password(store, target, new_password)
+    audit.log(store, user, "reset_password", f"users/{target['email']}")
+    return RedirectResponse("/admin/users?pwset=1", status_code=303)
+
+
+@router.post("/users/{uid}/toggle")
+def users_toggle(uid: str, request: Request, user: dict = admin_dep):
+    store = request.app.state.store
+    target = store.get("users", uid)
+    if not target:
+        raise HTTPException(404)
+    new_active = not target.get("active", True)
+    store.patch("users", uid, {"active": new_active})
+    audit.log(store, user, "toggle_user", f"users/{target['email']}", after={"active": new_active})
+    return RedirectResponse("/admin/users", status_code=303)
 
 
 # ---------- cấu hình ----------

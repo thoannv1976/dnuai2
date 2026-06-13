@@ -52,3 +52,30 @@ def test_lecturer_cannot_download_others_file(client, store, storage):
 def test_cron_requires_token(client):
     assert client.post("/tasks/cron").status_code == 403
     assert client.post("/tasks/cron", headers={"X-Cron-Token": "test-cron"}).status_code == 200
+
+
+def test_wrong_password_rejected(client):
+    resp = client.post("/login", data={"login_id": "gv001@dainam.edu.vn", "password": "sai-mat-khau"},
+                       follow_redirects=False)
+    assert resp.status_code == 401
+
+
+def test_login_by_ma_gv(client):
+    # đăng nhập bằng mã giảng viên thay vì email
+    resp = client.post("/login", data={"login_id": "GV001", "password": "test123"}, follow_redirects=False)
+    assert resp.status_code == 303
+    assert client.get("/lecturer", follow_redirects=False).status_code == 200
+
+
+def test_change_password(client):
+    login(client, "gv001@dainam.edu.vn")
+    resp = client.post("/change-password",
+                       data={"current": "test123", "new_password": "moimk456", "confirm": "moimk456"},
+                       follow_redirects=False)
+    assert resp.status_code == 303
+    client.get("/logout")
+    # mật khẩu cũ không còn dùng được, mật khẩu mới đăng nhập được
+    assert client.post("/login", data={"login_id": "gv001@dainam.edu.vn", "password": "test123"},
+                       follow_redirects=False).status_code == 401
+    assert client.post("/login", data={"login_id": "gv001@dainam.edu.vn", "password": "moimk456"},
+                       follow_redirects=False).status_code == 303

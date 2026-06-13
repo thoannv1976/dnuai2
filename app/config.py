@@ -41,21 +41,14 @@ class Settings:
         self.default_deadline = os.environ.get("DEADLINE", "2026-06-30T17:00:00+07:00")
         self.default_open_at = os.environ.get("OPEN_AT", "2026-06-25T00:00:00+07:00")
 
-        # Google SSO (chế độ gcp)
-        self.google_client_id = os.environ.get("GOOGLE_OAUTH_CLIENT_ID", "")
-        self.google_client_secret = os.environ.get("GOOGLE_OAUTH_CLIENT_SECRET", "")
-        self.allowed_email_domains = [
-            d.strip() for d in os.environ.get("ALLOWED_EMAIL_DOMAINS", "dainam.edu.vn").split(",") if d.strip()
-        ]
-
-        # Kiểu đăng nhập, tách khỏi kiểu hạ tầng: "dev" (chọn tài khoản, thử nghiệm)
-        # hoặc "google" (SSO). Mặc định theo APP_MODE.
-        self.auth_mode = os.environ.get("AUTH_MODE", "google" if self.app_mode == "gcp" else "dev")
-
+        # Đăng nhập bằng ID (email/mã GV) + mật khẩu
         # Bootstrap quản trị viên: các email này được tạo/nâng quyền admin khi khởi động
         self.admin_emails = [
             e.strip().lower() for e in os.environ.get("ADMIN_EMAILS", "").split(",") if e.strip()
         ]
+        # Mật khẩu cho admin bootstrap; mật khẩu mặc định cho người dùng import không kèm mật khẩu
+        self.admin_password = os.environ.get("ADMIN_PASSWORD", "")
+        self.default_password = os.environ.get("DEFAULT_PASSWORD", "DNU@2026")
 
         # GCP
         self.gcs_bucket = os.environ.get("GCS_BUCKET", "")

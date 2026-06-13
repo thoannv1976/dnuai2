@@ -38,6 +38,12 @@ USERS = [
 ]
 
 
+from app.security import hash_password  # noqa: E402
+
+TEST_PW = "test123"
+_PW_HASH = hash_password(TEST_PW)
+
+
 @pytest.fixture()
 def client():
     store = _app.state.store
@@ -48,7 +54,7 @@ def client():
     get_rubric(store)
     get_timeline(store)
     for u in USERS:
-        store.put("users", u["id"], dict(u))
+        store.put("users", u["id"], {**u, "password_hash": _PW_HASH})
     with TestClient(_app) as c:
         yield c
 
@@ -63,8 +69,8 @@ def storage():
     return _app.state.storage
 
 
-def login(client: TestClient, email: str) -> None:
-    resp = client.post("/login/dev", data={"email": email}, follow_redirects=False)
+def login(client: TestClient, email: str, password: str = TEST_PW) -> None:
+    resp = client.post("/login", data={"login_id": email, "password": password}, follow_redirects=False)
     assert resp.status_code == 303, resp.text
 
 

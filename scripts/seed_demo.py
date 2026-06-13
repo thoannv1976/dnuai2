@@ -108,15 +108,18 @@ def seed(store, storage) -> None:
     """Tạo người dùng demo + hồ sơ mẫu trên store/storage cho trước (idempotent)."""
     get_rubric(store)
 
+    from app.security import hash_password
+
+    demo_pw = hash_password("demo123")  # mật khẩu demo dùng chung cho mọi tài khoản mẫu
     users_by_email = {}
     for u in USERS:
         existing = store.find_one("users", email=u["email"])
         if existing:
             users_by_email[u["email"]] = existing
             continue
-        uid = store.add("users", {**u, "active": True})
+        uid = store.add("users", {**u, "active": True, "password_hash": demo_pw})
         users_by_email[u["email"]] = store.get("users", uid)
-        print(f"+ user {u['email']} ({u['role']})")
+        print(f"+ user {u['email']} ({u['role']}) — mật khẩu: demo123")
 
     # Hồ sơ mẫu đầy đủ cho GV001
     owner = users_by_email["gv001@dainam.edu.vn"]
