@@ -1,6 +1,33 @@
 """Xây dựng prompt chấm điểm cho Claude theo rubric từng Phần B–G."""
 from __future__ import annotations
 
+_LEVELS = [
+    ("xuat_sac", "Xuất sắc", 0.90, 1.00),
+    ("dat", "Đạt yêu cầu", 0.70, 0.89),
+    ("co_ban", "Cơ bản", 0.50, 0.69),
+    ("chua_dat", "Chưa đạt", 0.00, 0.49),
+]
+
+
+def _round_quarter(x: float) -> float:
+    return round(x * 4) / 4
+
+
+def _levels_block(c: dict) -> str:
+    """Liệt kê 4 mức neo kèm khoảng điểm tương ứng cho một tiêu chí."""
+    levels = c.get("levels") or {}
+    if not levels:
+        return ""
+    lines = []
+    for key, label, lo, hi in _LEVELS:
+        desc = levels.get(key)
+        if not desc:
+            continue
+        pt_lo = _round_quarter(c["max"] * lo)
+        pt_hi = _round_quarter(c["max"] * hi)
+        lines.append(f"      • {label} ({pt_lo:g}–{pt_hi:g} điểm): {desc}")
+    return "\n    Bốn mức tham chiếu (xác định mức phù hợp nhất rồi cho điểm trong khoảng của mức đó):\n" + "\n".join(lines)
+
 
 def system_prompt(part: str, part_def: dict) -> str:
     crit_lines = []
@@ -9,6 +36,7 @@ def system_prompt(part: str, part_def: dict) -> str:
         crit_lines.append(
             f"- Tiêu chí {c['id']} (tối đa {c['max']} điểm){bonus}: {c['name']}\n"
             f"  Hướng dẫn chấm: {c.get('guide', '')}"
+            f"{_levels_block(c)}"
         )
     criteria_text = "\n".join(crit_lines)
     return f"""Bạn là giám khảo của Hội đồng đánh giá năng lực ứng dụng AI dành cho giảng viên \

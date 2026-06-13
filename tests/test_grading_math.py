@@ -95,3 +95,16 @@ def test_appeal_window_3_working_days():
     assert working_days_since(parse_dt(published), parse_dt("2026-07-13T09:00:00+07:00")) == 1  # thứ 2
     assert appeal_window_open(published, parse_dt("2026-07-15T16:00:00+07:00"))   # 3 ngày làm việc
     assert not appeal_window_open(published, parse_dt("2026-07-16T09:00:00+07:00"))  # ngày thứ 4
+
+
+def test_prompt_includes_four_levels():
+    """Prompt chấm phải liệt kê 4 mức neo (Xuất sắc/Đạt/Cơ bản/Chưa đạt) kèm khoảng điểm."""
+    from app.rubric import load_rubric_seed
+    from app.services.grading.prompts import system_prompt
+
+    rubric = load_rubric_seed()
+    sp = system_prompt("B", rubric["parts"]["B"])
+    for label in ["Xuất sắc", "Đạt yêu cầu", "Cơ bản", "Chưa đạt"]:
+        assert label in sp
+    # B1 tối đa 8 → mức Xuất sắc khoảng 7.25–8 điểm
+    assert "7.25–8 điểm" in sp

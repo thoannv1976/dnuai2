@@ -11,11 +11,19 @@ def test_rubric_to_xlsx_parseable():
 
     data = rubric_to_xlsx(load_rubric_seed())
     wb = openpyxl.load_workbook(io.BytesIO(data))
-    assert {"Tổng quan", "Tiêu chí chấm", "Xếp loại năng lực"} <= set(wb.sheetnames)
-    # Sheet tiêu chí chứa mọi mã tiêu chí B–G
-    crit_text = "\n".join(str(c.value) for row in wb["Tiêu chí chấm"].iter_rows() for c in row)
+    assert {"Huong_dan", "Rubric_chi_tiet", "Bang_diem", "Phan_loai"} <= set(wb.sheetnames)
+    # Sheet rubric chi tiết: đủ mã tiêu chí B–G + 4 cột mức
+    rb = wb["Rubric_chi_tiet"]
+    header = [c.value for c in rb[1]]
+    assert "Xuất sắc (90–100%)" in header and "Chưa đạt (<50%)" in header
+    crit_text = "\n".join(str(c.value) for row in rb.iter_rows() for c in row)
     for cid in ["B1", "C4", "D3", "E_BONUS", "F2", "G2"]:
         assert cid in crit_text
+    # Bảng nhập điểm có công thức tổng + xếp loại
+    bd_text = "\n".join(str(c.value) for row in wb["Bang_diem"].iter_rows() for c in row if c.value)
+    assert "TỔNG ĐIỂM (thang 100)" in bd_text
+    assert "XẾP LOẠI NĂNG LỰC" in bd_text
+    assert any(str(c.value).startswith("=") for row in wb["Bang_diem"].iter_rows() for c in row if c.value)
 
 
 def test_rubric_to_docx_parseable():
