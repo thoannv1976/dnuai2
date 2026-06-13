@@ -27,8 +27,8 @@
     </div>
   </div>
 
-  <div class="bg-white rounded-xl shadow p-5">
-    <h2 class="font-semibold">Cấu hình AI chấm điểm</h2>
+  <div id="ai" class="bg-white rounded-xl shadow p-5 ring-2 ring-orange-200">
+    <h2 class="font-semibold">🔑 Cấu hình AI chấm điểm</h2>
     {% if request.query_params.get('ai') %}<div class="bg-emerald-50 border border-emerald-200 rounded p-2 mt-2 text-xs">Đã lưu cấu hình AI.</div>{% endif %}
     {% if request.query_params.get('ai_test') %}<div class="bg-blue-50 border border-blue-200 rounded p-2 mt-2 text-xs">{{ request.query_params.get('ai_test') }}</div>{% endif %}
     <table class="text-sm mt-3 w-full">
