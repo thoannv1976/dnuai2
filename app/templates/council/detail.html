@@ -54,7 +54,11 @@
     <p>Tự đánh giá mức thành thạo: {{ pa.muc_thanh_thao }}/5</p>
   </div>
   <div class="bg-white rounded-xl shadow p-4 text-sm">
-    <h2 class="font-semibold mb-2">Tài liệu đã nộp ({{ items | length }})</h2>
+    <div class="flex items-center mb-2">
+      <h2 class="font-semibold">Tài liệu đã nộp ({{ items | length }})</h2>
+      <a href="/council/submission/{{ sub.id }}/download.zip"
+         class="ml-auto text-xs bg-emerald-600 hover:bg-emerald-700 text-white rounded px-3 py-1.5">⬇ Tải tất cả (ZIP)</a>
+    </div>
     <div class="max-h-44 overflow-auto space-y-1">
       {% for it in items %}
       <div class="flex gap-2 items-center">

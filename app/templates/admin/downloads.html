@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Tải sản phẩm giảng viên{% endblock %}
+{% block content %}
+{% set status_labels = {'submitted':'Đã nộp','locked':'Đã khóa','grading':'Đang chấm','graded':'Đã chấm','approved':'Đã duyệt','published':'Đã công bố'} %}
+<div class="flex flex-wrap items-center gap-3 mb-4">
+  <h1 class="text-xl font-bold">Tải sản phẩm giảng viên</h1>
+  <form method="get" class="ml-auto flex gap-2 text-sm">
+    <select name="khoa" class="border rounded-lg px-2 py-1.5">
+      <option value="">— Tất cả khoa —</option>
+      {% for k in khoas %}<option value="{{ k }}" {{ 'selected' if k == khoa }}>{{ k }}</option>{% endfor %}
+    </select>
+    <button class="bg-slate-700 text-white rounded-lg px-4">Lọc</button>
+  </form>
+  <a href="/admin/download/all.zip{{ '?khoa=' ~ khoa if khoa }}"
+     class="bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg px-4 py-2 text-sm font-semibold"
+     onclick="this.classList.add('opacity-60');this.textContent='⏳ Đang đóng gói...';">
+    ⬇ Tải toàn bộ {{ ('khoa ' ~ khoa) if khoa else 'tất cả giảng viên' }} (ZIP)
+  </a>
+</div>
+
+<p class="text-sm text-slate-500 mb-3">
+  Mỗi gói gồm sản phẩm + minh chứng theo cấu trúc thư mục từng giảng viên/từng phần, kèm thông tin Phần A và danh sách liên kết.
+  Gói "toàn bộ" có thêm <b>DANH_SACH.csv</b>. Tệp lớn có thể mất chút thời gian đóng gói.
+</p>
+
+<div class="bg-white rounded-xl shadow overflow-x-auto">
+  <table class="w-full text-sm">
+    <thead><tr class="text-left text-xs text-slate-400 border-b">
+      <th class="px-4 py-2.5">Mã GV</th><th class="px-2 py-2.5">Họ tên</th><th class="px-2 py-2.5">Khoa</th>
+      <th class="px-2 py-2.5 text-center">Tệp</th><th class="px-2 py-2.5 text-center">Liên kết</th>
+      <th class="px-2 py-2.5">Trạng thái</th><th class="px-4 py-2.5 text-right">Tải về</th>
+    </tr></thead>
+    <tbody>
+      {% for r in rows %}
+      <tr class="border-b last:border-0 hover:bg-orange-50/40">
+        <td class="px-4 py-2.5">{{ r.user.ma_gv }}</td>
+        <td class="px-2 py-2.5 font-medium">{{ r.user.ho_ten }}</td>
+        <td class="px-2 py-2.5">{{ r.user.khoa }}</td>
+        <td class="px-2 py-2.5 text-center">{{ r.n_files }}</td>
+        <td class="px-2 py-2.5 text-center">{{ r.n_links }}</td>
+        <td class="px-2 py-2.5">{{ status_labels.get(r.sub.status, r.sub.status) }}</td>
+        <td class="px-4 py-2.5 text-right">
+          <a href="/council/submission/{{ r.sub.id }}/download.zip"
+             class="text-orange-700 font-semibold hover:underline">⬇ ZIP</a>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="7" class="px-4 py-8 text-center text-slate-400">Chưa có hồ sơ nào (ngoài bản nháp).</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

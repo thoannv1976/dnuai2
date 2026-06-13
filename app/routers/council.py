@@ -103,6 +103,25 @@ def grade_one(sid: str, request: Request, user: dict = council_dep):
     return RedirectResponse(f"/council/submission/{sid}?grading=started", status_code=303)
 
 
+@router.get("/submission/{sid}/download.zip")
+def download_submission(sid: str, request: Request, user: dict = council_dep):
+    """Tải toàn bộ sản phẩm + minh chứng của một giảng viên (ZIP)."""
+    import os
+
+    from fastapi.responses import FileResponse
+    from starlette.background import BackgroundTask
+
+    from app.services.downloads import build_submission_zip
+
+    result = build_submission_zip(request.app.state.store, request.app.state.storage, sid)
+    if not result:
+        raise HTTPException(404)
+    path, fname = result
+    audit.log(request.app.state.store, user, "download_submission", f"submissions/{sid}")
+    return FileResponse(path, filename=fname, media_type="application/zip",
+                        background=BackgroundTask(os.remove, path))
+
+
 @router.post("/submission/{sid}/score")
 def adjust_score(sid: str, request: Request, score_id: str = Form(...),
                  council_score: float = Form(...), reason: str = Form(...), user: dict = council_dep):

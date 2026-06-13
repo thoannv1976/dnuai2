@@ -322,6 +322,42 @@ def emails_page(request: Request, user: dict = admin_dep):
     return render(request, "admin/emails.html", user, emails=emails)
 
 
+# ---------- tải sản phẩm (ZIP) ----------
+
+@router.get("/downloads")
+def downloads_page(request: Request, khoa: str = "", user: dict = admin_dep):
+    store = request.app.state.store
+    users = {u["id"]: u for u in store.all("users")}
+    rows = []
+    for s in store.all("submissions"):
+        u = users.get(s["user_id"])
+        if not u or s.get("status") == "draft":
+            continue
+        if khoa and (u.get("khoa") or "") != khoa:
+            continue
+        n_files = sum(1 for i in store.find("submission_items", submission_id=s["id"]) if i.get("type") == "file")
+        n_links = sum(1 for i in store.find("submission_items", submission_id=s["id"]) if i.get("type") == "link")
+        rows.append({"sub": s, "user": u, "n_files": n_files, "n_links": n_links})
+    rows.sort(key=lambda r: (r["user"].get("khoa", ""), r["user"].get("ma_gv", "")))
+    khoas = sorted({u.get("khoa", "") for u in users.values() if u.get("khoa")})
+    return render(request, "admin/downloads.html", user, rows=rows, khoas=khoas, khoa=khoa)
+
+
+@router.get("/download/all.zip")
+def download_all(request: Request, khoa: str = "", user: dict = admin_dep):
+    import os
+
+    from fastapi.responses import FileResponse
+    from starlette.background import BackgroundTask
+
+    from app.services.downloads import build_all_zip
+
+    path, fname = build_all_zip(request.app.state.store, request.app.state.storage, khoa=khoa)
+    audit.log(request.app.state.store, user, "download_all", "submissions", note=f"khoa={khoa or 'tất cả'}")
+    return FileResponse(path, filename=fname, media_type="application/zip",
+                        background=BackgroundTask(os.remove, path))
+
+
 # ---------- sao lưu ----------
 
 @router.get("/backup")
