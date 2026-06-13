@@ -19,13 +19,13 @@ def _fill_submission(client, store):
     for part in ["B", "C", "D", "E", "F", "G"]:
         data = make_docx_bytes(f"Sản phẩm phần {part}", ["Nội dung sản phẩm chi tiết.", "Có nhiệm vụ khuyến khích."])
         resp = client.post(f"/lecturer/part/{part}/upload", data={"kind": "product"},
-                           files={"file": (f"GV001_Phan{part}_SanPham.docx", data, DOCX_CT)},
+                           files={"files": (f"GV001_Phan{part}_SanPham.docx", data, DOCX_CT)},
                            follow_redirects=False)
         assert resp.status_code == 303, resp.text
         if part != "G":
             ev = make_docx_bytes(f"Nhật ký prompt phần {part}", ["Prompt 1...", "Prompt 2..."])
             resp = client.post(f"/lecturer/part/{part}/upload", data={"kind": "evidence"},
-                               files={"file": (f"GV001_Phan{part}_NhatKyPrompt.docx", ev, DOCX_CT)},
+                               files={"files": (f"GV001_Phan{part}_NhatKyPrompt.docx", ev, DOCX_CT)},
                                follow_redirects=False)
             assert resp.status_code == 303
 
@@ -126,7 +126,7 @@ def test_locked_after_deadline(client, store):
     login(client, "gv001@dainam.edu.vn")
     data = make_docx_bytes("Muộn", ["nộp muộn"])
     resp = client.post("/lecturer/part/B/upload", data={"kind": "product"},
-                       files={"file": ("GV001_PhanB_Muon.docx", data, DOCX_CT)},
+                       files={"files": ("GV001_PhanB_Muon.docx", data, DOCX_CT)},
                        follow_redirects=False)
     assert resp.status_code == 400  # hệ thống không tiếp nhận sau hạn
     resp = client.post("/lecturer/submit", follow_redirects=False)
@@ -138,6 +138,33 @@ def test_locked_after_deadline(client, store):
     assert store.get("submissions", sub["id"])["status"] == "locked"
 
 
+def test_upload_multiple_files_at_once(client, store):
+    """Tải nhiều tệp trong một lần; tệp sai định dạng bị bỏ qua, tệp hợp lệ vẫn lưu."""
+    login(client, "gv001@dainam.edu.vn")
+    client.get("/lecturer")  # tạo submission
+    a = make_docx_bytes("SP 1", ["nội dung 1"])
+    b = make_docx_bytes("SP 2", ["nội dung 2"])
+    bad = b"khong phai docx"
+    resp = client.post(
+        "/lecturer/part/C/upload", data={"kind": "product"},
+        files=[
+            ("files", ("GV001_PhanC_File1.docx", a, DOCX_CT)),
+            ("files", ("GV001_PhanC_File2.docx", b, DOCX_CT)),
+            ("files", ("GV001_PhanC_Anh.png", bad, "image/png")),  # sai định dạng → bỏ qua
+        ],
+        follow_redirects=False,
+    )
+    assert resp.status_code == 303
+    assert "uploaded=2" in resp.headers["location"]
+    assert "upload_errors=" in resp.headers["location"]
+    sub = store.find_one("submissions", user_id="u-gv1")
+    items = [i for i in store.find("submission_items", submission_id=sub["id"])
+             if i["part"] == "C" and i["kind"] == "product"]
+    assert len(items) == 2
+    names = sorted(i["original_name"] for i in items)
+    assert names == ["GV001_PhanC_File1.docx", "GV001_PhanC_File2.docx"]
+
+
 def test_missing_evidence_penalty_in_flow(client, store, storage):
     """Hồ sơ chỉ nộp sản phẩm Phần B không minh chứng → điểm B bị trừ 50%, B4=0, có cờ bất thường."""
     login(client, "gv002@dainam.edu.vn")
@@ -147,7 +174,7 @@ def test_missing_evidence_penalty_in_flow(client, store, storage):
     }, follow_redirects=False)
     data = make_docx_bytes("Đề cương", ["Nội dung đề cương."])
     client.post("/lecturer/part/B/upload", data={"kind": "product"},
-                files={"file": ("GV002_PhanB_DeCuong.docx", data, DOCX_CT)}, follow_redirects=False)
+                files={"files": ("GV002_PhanB_DeCuong.docx", data, DOCX_CT)}, follow_redirects=False)
     client.post("/lecturer/submit", follow_redirects=False)
 
     sub = store.find_one("submissions", user_id="u-gv2")

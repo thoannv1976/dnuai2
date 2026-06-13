@@ -5,7 +5,7 @@ import re
 import time
 
 import httpx
-from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import RedirectResponse
 
 from app.config import (
@@ -108,37 +108,50 @@ def part_page(part: str, request: Request, user: dict = lecturer_dep):
 
 @router.post("/part/{part}/upload")
 async def upload_file(part: str, request: Request, kind: str = Form(...),
-                      file: UploadFile = None, user: dict = lecturer_dep):
+                      files: list[UploadFile] = File(default=[]), user: dict = lecturer_dep):
+    """Tải lên MỘT hoặc NHIỀU tệp cùng lúc. Tệp lỗi (sai định dạng/quá 200MB) được bỏ qua
+    và báo lại; các tệp hợp lệ vẫn được lưu."""
     part = part.upper()
     if part not in GRADED_PARTS or kind not in ("product", "evidence"):
         raise HTTPException(404)
     store, storage = request.app.state.store, request.app.state.storage
     sub = get_submission(store, user)
     ensure_editable(store, sub)
-    if file is None or not file.filename:
-        raise HTTPException(400, "Chưa chọn tệp")
-    err = check_extension(file.filename)
-    if err:
-        raise HTTPException(400, err)
 
-    safe_name = re.sub(r"[^\w\.\-]", "_", file.filename, flags=re.UNICODE)
-    key = f"{sub['id']}/{part}/{kind}/{int(time.time())}_{safe_name}"
-    size = storage.save(key, file.file)
-    err = check_size(size)
-    if err:
-        storage.delete(key)
-        raise HTTPException(400, err)
+    chosen = [f for f in (files or []) if f is not None and f.filename]
+    if not chosen:
+        raise HTTPException(400, "Chưa chọn tệp")
 
     ma_gv = sub.get("part_a", {}).get("ma_gv", "") or user.get("ma_gv", "")
-    item = {
-        "id": new_id(), "submission_id": sub["id"], "part": part, "kind": kind,
-        "type": "file", "storage_path": key, "original_name": file.filename,
-        "size": size, "content_type": file.content_type,
-        "naming_warning": check_naming(file.filename, ma_gv, part) if ma_gv else None,
-        "uploaded_at": now_vn().isoformat(),
-    }
-    store.put("submission_items", item["id"], item)
-    return RedirectResponse(f"/lecturer/part/{part}?uploaded=1", status_code=303)
+    uploaded, errors = 0, []
+    for file in chosen:
+        err = check_extension(file.filename)
+        if err:
+            errors.append(f"{file.filename}: {err}")
+            continue
+        safe_name = re.sub(r"[^\w\.\-]", "_", file.filename, flags=re.UNICODE)
+        key = f"{sub['id']}/{part}/{kind}/{int(time.time() * 1000)}_{safe_name}"
+        size = storage.save(key, file.file)
+        err = check_size(size)
+        if err:
+            storage.delete(key)
+            errors.append(f"{file.filename}: {err}")
+            continue
+        store.put("submission_items", new_id(), {
+            "submission_id": sub["id"], "part": part, "kind": kind,
+            "type": "file", "storage_path": key, "original_name": file.filename,
+            "size": size, "content_type": file.content_type,
+            "naming_warning": check_naming(file.filename, ma_gv, part) if ma_gv else None,
+            "uploaded_at": now_vn().isoformat(),
+        })
+        uploaded += 1
+
+    params = f"uploaded={uploaded}"
+    if errors:
+        from urllib.parse import quote
+
+        params += "&upload_errors=" + quote(" | ".join(errors))
+    return RedirectResponse(f"/lecturer/part/{part}?{params}", status_code=303)
 
 
 @router.post("/part/{part}/link")
