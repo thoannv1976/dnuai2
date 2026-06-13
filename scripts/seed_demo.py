@@ -115,7 +115,11 @@ def seed(store, storage) -> None:
     for u in USERS:
         existing = store.find_one("users", email=u["email"])
         if existing:
-            users_by_email[u["email"]] = existing
+            # Backfill mật khẩu nếu tài khoản cũ chưa có (vd dữ liệu từ lần deploy trước)
+            if not existing.get("password_hash"):
+                store.patch("users", existing["id"], {"password_hash": demo_pw, "active": True})
+                print(f"~ backfill mật khẩu demo123 cho {u['email']}")
+            users_by_email[u["email"]] = store.get("users", existing["id"])
             continue
         uid = store.add("users", {**u, "active": True, "password_hash": demo_pw})
         users_by_email[u["email"]] = store.get("users", uid)
@@ -130,8 +134,8 @@ def seed(store, storage) -> None:
     store.put("submissions", sid, {
         "id": sid, "user_id": owner["id"], "status": "submitted",
         "part_a": {
-            "ho_ten": owner["ho_ten"], "ma_gv": owner["ma_gv"],
-            "khoa_bo_mon": f"{owner['khoa']} - {owner['bo_mon']}",
+            "ho_ten": owner.get("ho_ten", ""), "ma_gv": owner.get("ma_gv", ""),
+            "khoa_bo_mon": f"{owner.get('khoa', '')} - {owner.get('bo_mon', '')}",
             "hoc_phan": "Nhập môn Trí tuệ nhân tạo (HK1 2026-2027)",
             "cong_cu_ai": ["Claude", "ChatGPT", "Gamma", "NotebookLM"],
             "muc_thanh_thao": 4,

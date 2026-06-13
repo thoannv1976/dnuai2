@@ -44,28 +44,30 @@ def create_app() -> FastAPI:
     get_rubric(app.state.store)
     get_timeline(app.state.store)
 
-    # SEED_DEMO=1: tự tạo tài khoản + hồ sơ demo khi khởi động (phục vụ deploy demo)
-    if os.environ.get("SEED_DEMO") == "1" and not app.state.store.all("users"):
+    # SEED_DEMO=1: tạo/backfill tài khoản + hồ sơ demo khi khởi động (idempotent — chạy mọi lần
+    # để vá mật khẩu cho dữ liệu cũ từ lần deploy trước; không tạo trùng)
+    if os.environ.get("SEED_DEMO") == "1":
         from scripts.seed_demo import seed
 
-        seed(app.state.store, app.state.storage)
+        try:
+            seed(app.state.store, app.state.storage)
+        except Exception:  # noqa: BLE001 — seed lỗi không được chặn app khởi động
+            logging.getLogger("dnu").exception("Seed demo thất bại")
 
-    # ADMIN_EMAILS: bảo đảm các email này là quản trị viên (tạo mới hoặc nâng quyền) + đặt mật khẩu
+    # ADMIN_EMAILS: bảo đảm các email này là quản trị viên + đặt/đặt-lại mật khẩu theo ADMIN_PASSWORD
     from app.config import ROLE_ADMIN as _ADMIN
     from app.security import hash_password
 
     for email in settings.admin_emails:
         existing = app.state.store.find_one("users", email=email)
         if existing:
-            fields = {}
-            if existing.get("role") != _ADMIN or not existing.get("active", True):
-                fields.update({"role": _ADMIN, "active": True})
-            # Đặt mật khẩu admin nếu cấu hình ADMIN_PASSWORD và tài khoản chưa có mật khẩu
-            if settings.admin_password and not existing.get("password_hash"):
+            fields = {"role": _ADMIN, "active": True}
+            # Luôn đặt lại mật khẩu admin theo ADMIN_PASSWORD (bảo đảm đăng nhập được
+            # kể cả khi tài khoản cũ thiếu/khác mật khẩu)
+            if settings.admin_password:
                 fields["password_hash"] = hash_password(settings.admin_password)
-            if fields:
-                app.state.store.patch("users", existing["id"], fields)
-                logging.getLogger("dnu").info("Cập nhật quản trị viên: %s", email)
+            app.state.store.patch("users", existing["id"], fields)
+            logging.getLogger("dnu").info("Cập nhật quản trị viên: %s", email)
         else:
             app.state.store.add("users", {
                 "email": email, "ho_ten": email.split("@")[0], "ma_gv": "",
@@ -73,6 +75,13 @@ def create_app() -> FastAPI:
                 "password_hash": hash_password(settings.admin_password) if settings.admin_password else None,
             })
             logging.getLogger("dnu").info("Tạo quản trị viên từ ADMIN_EMAILS: %s", email)
+
+    _users = app.state.store.all("users")
+    logging.getLogger("dnu").info(
+        "Khởi động DNU AI-Assess: APP_MODE=%s, SEED_DEMO=%s, %d người dùng (%d có mật khẩu), admin_emails=%s",
+        settings.app_mode, os.environ.get("SEED_DEMO", ""), len(_users),
+        sum(1 for u in _users if u.get("password_hash")), settings.admin_emails,
+    )
 
     @app.get("/")
     def root(request: Request):
