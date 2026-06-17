@@ -1,9 +1,10 @@
 {% extends "base.html" %}
 {% block title %}Báo cáo & Dashboard{% endblock %}
 {% block content %}
-<div class="flex items-center gap-3 mb-4">
+<div class="flex flex-wrap items-center gap-3 mb-4">
   <h1 class="text-xl font-bold">Dashboard chương trình đánh giá</h1>
-  <a href="/reports/export.xlsx" class="ml-auto bg-slate-700 text-white rounded-lg px-4 py-2 text-sm">⬇ Xuất báo cáo toàn trường (Excel)</a>
+  <a href="/reports/scores" class="ml-auto bg-orange-600 hover:bg-orange-700 text-white rounded-lg px-4 py-2 text-sm font-semibold">📋 Bảng điểm tất cả giảng viên</a>
+  <a href="/reports/export.xlsx" class="bg-slate-700 text-white rounded-lg px-4 py-2 text-sm">⬇ Xuất báo cáo toàn trường (Excel)</a>
 </div>
 
 <div class="grid sm:grid-cols-4 gap-4 mb-6">

@@ -24,6 +24,7 @@
         {% elif user.role == 'council' %}
           <a class="hover:underline" href="/council">Thẩm định</a>
           <a class="hover:underline" href="/council/appeals">Phản hồi</a>
+          <a class="hover:underline" href="/reports/scores">Bảng điểm</a>
           <a class="hover:underline" href="/reports">Báo cáo</a>
         {% elif user.role == 'admin' %}
           <a class="hover:underline" href="/admin">Vận hành</a>
@@ -31,6 +32,7 @@
           <a class="hover:underline" href="/admin/config#ai">Cấu hình AI</a>
           <a class="hover:underline" href="/admin/downloads">Tải sản phẩm</a>
           <a class="hover:underline" href="/council">Thẩm định</a>
+          <a class="hover:underline" href="/reports/scores">Bảng điểm</a>
           <a class="hover:underline" href="/reports">Báo cáo</a>
         {% endif %}
         <span class="bg-orange-800 rounded px-2 py-1">{{ user.ho_ten or user.email }}

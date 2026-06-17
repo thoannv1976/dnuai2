@@ -9,6 +9,7 @@ from fastapi.responses import Response
 from app.auth import require_role
 from app.config import GRADED_PARTS, ROLE_ADMIN, ROLE_COUNCIL, ROLE_LECTURER, now_vn
 from app.rubric import get_rubric
+from app.services.classify import classify
 
 router = APIRouter(prefix="/reports")
 staff_dep = Depends(require_role(ROLE_COUNCIL, ROLE_ADMIN))
@@ -16,6 +17,49 @@ staff_dep = Depends(require_role(ROLE_COUNCIL, ROLE_ADMIN))
 
 def render(request: Request, template: str, user: dict, **ctx):
     return request.app.state.templates.TemplateResponse(request, template, {"user": user, "now": now_vn(), **ctx})
+
+
+def scores_rows(store, khoa: str = "") -> list[dict]:
+    """Bảng điểm tất cả hồ sơ đã nộp — điểm HIỆN TẠI (Hội đồng điều chỉnh nếu có, ngược lại điểm AI),
+    xem được kể cả khi Hội đồng chưa chốt. Mỗi hồ sơ chỉ truy vấn scores một lần."""
+    from collections import defaultdict
+
+    rubric = get_rubric(store)
+    users = {u["id"]: u for u in store.all("users")}
+    reviews = {r["submission_id"]: r for r in store.all("reviews")}
+    rows = []
+    for s in store.all("submissions"):
+        if s.get("status") == "draft":
+            continue
+        u = users.get(s["user_id"])
+        if not u:
+            continue
+        if khoa and (u.get("khoa") or "") != khoa:
+            continue
+        scores = store.find("scores", submission_id=s["id"])
+        has = bool(scores)
+        part_sum: dict[str, float] = defaultdict(float)
+        adjusted = False
+        for sc in scores:
+            part_sum[sc["part"]] += sc.get("final_score") or 0
+            if sc.get("council_score") is not None:
+                adjusted = True
+        totals = {p: round(min(part_sum.get(p, 0), rubric["parts"][p]["max_score"]), 2) for p in GRADED_PARTS}
+        total = round(sum(totals.values()), 2) if has else None
+        review = reviews.get(s["id"]) or {}
+        final = review.get("status") in ("approved", "published")
+        level = None
+        if total is not None:
+            # nếu đã chốt thì dùng phân loại đã lưu, ngược lại tính tạm theo điểm hiện tại
+            level = review.get("classification_label") if final else classify(total, rubric)["label"]
+        rows.append({
+            "user": u, "sub": s, "totals": totals, "total": total, "has": has,
+            "level": level, "final": final, "adjusted": adjusted,
+            "ai_total": s.get("ai_total"),
+        })
+    rows.sort(key=lambda r: (-(r["total"] if r["total"] is not None else -1),
+                             r["user"].get("khoa", ""), r["user"].get("ma_gv", "")))
+    return rows
 
 
 def build_summary(store) -> dict:
@@ -73,6 +117,58 @@ def build_summary(store) -> dict:
 def dashboard(request: Request, user: dict = staff_dep):
     store = request.app.state.store
     return render(request, "reports/dashboard.html", user, summary=build_summary(store))
+
+
+@router.get("/scores")
+def scores_page(request: Request, khoa: str = "", user: dict = staff_dep):
+    store = request.app.state.store
+    rows = scores_rows(store, khoa=khoa)
+    users = {u["id"]: u for u in store.all("users")}
+    khoas = sorted({u.get("khoa", "") for u in users.values() if u.get("khoa")})
+    graded = sum(1 for r in rows if r["has"])
+    return render(request, "reports/scores.html", user, rows=rows, khoas=khoas, khoa=khoa,
+                  rubric=get_rubric(store), parts=GRADED_PARTS, graded=graded)
+
+
+@router.get("/scores.xlsx")
+def scores_xlsx(request: Request, khoa: str = "", user: dict = staff_dep):
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill
+
+    store = request.app.state.store
+    rubric = get_rubric(store)
+    rows = scores_rows(store, khoa=khoa)
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Bảng điểm"
+    header = ["Mã GV", "Họ tên", "Email", "Khoa", "Bộ môn", "Trạng thái"]
+    header += [f"Phần {p} ({rubric['parts'][p]['max_score']})" for p in GRADED_PARTS]
+    header += ["Tổng (hiện tại)", "Mức năng lực", "Tính chất điểm"]
+    ws.append(header)
+    for c in ws[1]:
+        c.fill = PatternFill("solid", fgColor="EA580C")
+        c.font = Font(bold=True, color="FFFFFF")
+    status_labels = {"submitted": "Đã nộp", "locked": "Đã khóa", "grading": "Đang chấm",
+                     "graded": "Đã chấm", "approved": "Đã duyệt", "published": "Đã công bố"}
+    for r in rows:
+        u = r["user"]
+        nature = "Chính thức (đã duyệt)" if r["final"] else ("Tạm tính (chưa chốt)" if r["has"] else "Chưa chấm")
+        ws.append([
+            u.get("ma_gv", ""), u.get("ho_ten", ""), u.get("email", ""),
+            u.get("khoa", ""), u.get("bo_mon", ""), status_labels.get(r["sub"].get("status"), r["sub"].get("status")),
+            *[(r["totals"][p] if r["has"] else "") for p in GRADED_PARTS],
+            (r["total"] if r["total"] is not None else ""), (r["level"] or ""), nature,
+        ])
+    for col, w in zip("ABCDE", [10, 24, 28, 22, 22]):
+        ws.column_dimensions[col].width = w
+    buf = io.BytesIO()
+    wb.save(buf)
+    return Response(
+        buf.getvalue(),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename=DNU-BangDiem-{now_vn():%Y%m%d-%H%M}.xlsx"},
+    )
 
 
 @router.get("/api/summary")
