@@ -75,8 +75,9 @@ def users_page(request: Request, user: dict = admin_dep):
 
 @router.post("/users/import")
 async def users_import(request: Request, file: UploadFile = None, csv_text: str = Form(""), user: dict = admin_dep):
-    """Import CSV: ma_gv,ho_ten,email,khoa,bo_mon,role(lecturer|council|admin),password(tùy chọn).
+    """Import CSV: ma_gv,ho_ten,email,don_vi,bo_mon,chuc_vu,role(lecturer|council|admin),password(tùy chọn).
 
+    Tương thích ngược: chấp nhận cột "khoa" thay cho "don_vi" và "ma_dinh_danh" thay cho "ma_gv".
     Người dùng mới không kèm password sẽ nhận mật khẩu mặc định (DEFAULT_PASSWORD, mặc định DNU@2026).
     """
     store = request.app.state.store
@@ -91,14 +92,19 @@ async def users_import(request: Request, file: UploadFile = None, csv_text: str 
     reader = csv.DictReader(io.StringIO(raw.strip()))
     added, updated = 0, 0
     for row in reader:
+        # chuẩn hóa khóa cột về chữ thường, bỏ khoảng trắng (hỗ trợ tiêu đề có dấu cách)
+        row = {(k or "").strip().lower(): v for k, v in row.items()}
         email = (row.get("email") or "").strip().lower()
         if not email:
             continue
         role = (row.get("role") or ROLE_LECTURER).strip() or ROLE_LECTURER
+        # Đơn vị: nhận cột "don_vi" (mới) hoặc "khoa" (cũ); lưu nội bộ ở khóa "khoa"
+        don_vi = (row.get("don_vi") or row.get("khoa") or "").strip()
         doc = {
             "email": email, "ho_ten": (row.get("ho_ten") or "").strip(),
-            "ma_gv": (row.get("ma_gv") or "").strip(), "khoa": (row.get("khoa") or "").strip(),
-            "bo_mon": (row.get("bo_mon") or "").strip(), "role": role, "active": True,
+            "ma_gv": (row.get("ma_gv") or row.get("ma_dinh_danh") or "").strip(), "khoa": don_vi,
+            "bo_mon": (row.get("bo_mon") or "").strip(), "chuc_vu": (row.get("chuc_vu") or "").strip(),
+            "role": role, "active": True,
         }
         pw = (row.get("password") or "").strip()
         existing = store.find_one("users", email=email)
@@ -117,8 +123,8 @@ async def users_import(request: Request, file: UploadFile = None, csv_text: str 
 
 @router.post("/users/add")
 def users_add(request: Request, ho_ten: str = Form(...), email: str = Form(...), ma_gv: str = Form(""),
-              khoa: str = Form(""), bo_mon: str = Form(""), role: str = Form(ROLE_LECTURER),
-              password: str = Form(...), user: dict = admin_dep):
+              khoa: str = Form(""), bo_mon: str = Form(""), chuc_vu: str = Form(""),
+              role: str = Form(ROLE_LECTURER), password: str = Form(...), user: dict = admin_dep):
     store = request.app.state.store
     email = email.strip().lower()
     if role not in (ROLE_LECTURER, ROLE_COUNCIL, ROLE_ADMIN):
@@ -129,8 +135,8 @@ def users_add(request: Request, ho_ten: str = Form(...), email: str = Form(...),
         raise HTTPException(400, "Email đã tồn tại")
     store.add("users", {
         "email": email, "ho_ten": ho_ten.strip(), "ma_gv": ma_gv.strip(),
-        "khoa": khoa.strip(), "bo_mon": bo_mon.strip(), "role": role, "active": True,
-        "password_hash": hash_password(password),
+        "khoa": khoa.strip(), "bo_mon": bo_mon.strip(), "chuc_vu": chuc_vu.strip(),
+        "role": role, "active": True, "password_hash": hash_password(password),
     })
     audit.log(store, user, "add_user", f"users/{email}", note=f"role={role}")
     return RedirectResponse("/admin/users?added=1&updated=0", status_code=303)

@@ -142,7 +142,7 @@ def scores_xlsx(request: Request, khoa: str = "", user: dict = staff_dep):
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Bảng điểm"
-    header = ["Mã GV", "Họ tên", "Email", "Khoa", "Bộ môn", "Trạng thái"]
+    header = ["Mã GV", "Họ tên", "Email", "Đơn vị", "Bộ môn", "Chức vụ", "Trạng thái"]
     header += [f"Phần {p} ({rubric['parts'][p]['max_score']})" for p in GRADED_PARTS]
     header += ["Tổng (hiện tại)", "Mức năng lực", "Tính chất điểm"]
     ws.append(header)
@@ -156,11 +156,12 @@ def scores_xlsx(request: Request, khoa: str = "", user: dict = staff_dep):
         nature = "Chính thức (đã duyệt)" if r["final"] else ("Tạm tính (chưa chốt)" if r["has"] else "Chưa chấm")
         ws.append([
             u.get("ma_gv", ""), u.get("ho_ten", ""), u.get("email", ""),
-            u.get("khoa", ""), u.get("bo_mon", ""), status_labels.get(r["sub"].get("status"), r["sub"].get("status")),
+            u.get("khoa", ""), u.get("bo_mon", ""), u.get("chuc_vu", ""),
+            status_labels.get(r["sub"].get("status"), r["sub"].get("status")),
             *[(r["totals"][p] if r["has"] else "") for p in GRADED_PARTS],
             (r["total"] if r["total"] is not None else ""), (r["level"] or ""), nature,
         ])
-    for col, w in zip("ABCDE", [10, 24, 28, 22, 22]):
+    for col, w in zip("ABCDEF", [10, 24, 28, 22, 22, 18]):
         ws.column_dimensions[col].width = w
     buf = io.BytesIO()
     wb.save(buf)
@@ -188,7 +189,7 @@ def export_xlsx(request: Request, user: dict = staff_dep):
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Tổng hợp"
-    header = ["Mã GV", "Họ tên", "Email", "Khoa", "Bộ môn", "Trạng thái"]
+    header = ["Mã GV", "Họ tên", "Email", "Đơn vị", "Bộ môn", "Chức vụ", "Trạng thái"]
     header += [f"Phần {p}" for p in GRADED_PARTS] + ["Tổng điểm", "Mức năng lực"]
     ws.append(header)
     for s in sorted(store.all("submissions"), key=lambda x: -(x.get("final_total") or x.get("ai_total") or 0)):
@@ -197,7 +198,7 @@ def export_xlsx(request: Request, user: dict = staff_dep):
         pt = r.get("part_totals") or {}
         ws.append([
             u.get("ma_gv", ""), u.get("ho_ten", ""), u.get("email", ""), u.get("khoa", ""), u.get("bo_mon", ""),
-            s.get("status", ""), *[pt.get(p, "") for p in GRADED_PARTS],
+            u.get("chuc_vu", ""), s.get("status", ""), *[pt.get(p, "") for p in GRADED_PARTS],
             r.get("total_final", ""), r.get("classification_label", ""),
         ])
 

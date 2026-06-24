@@ -71,7 +71,7 @@ def user_prompt(part: str, context: dict, products_text: str, evidence_text: str
     pa = context.get("part_a", {})
     info = (
         f"Giảng viên: {pa.get('ho_ten', '?')} — Mã GV: {pa.get('ma_gv', '?')} — "
-        f"Khoa/Bộ môn: {pa.get('khoa_bo_mon', '?')}\n"
+        f"Đơn vị/Bộ môn: {pa.get('khoa_bo_mon', '?')}\n"
         f"Học phần đăng ký: {pa.get('hoc_phan', '?')}\n"
         f"Công cụ AI kê khai: {', '.join(pa.get('cong_cu_ai', []) or ['(không kê khai)'])}"
     )

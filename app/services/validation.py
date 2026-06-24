@@ -58,7 +58,7 @@ def part_a_complete(part_a: dict | None) -> tuple[bool, list[str]]:
     part_a = part_a or {}
     missing = []
     labels = {
-        "ho_ten": "Họ tên", "ma_gv": "Mã giảng viên", "khoa_bo_mon": "Khoa/Bộ môn",
+        "ho_ten": "Họ tên", "ma_gv": "Mã giảng viên", "khoa_bo_mon": "Đơn vị/Bộ môn",
         "hoc_phan": "Học phần đăng ký", "cong_cu_ai": "Danh mục công cụ AI",
         "muc_thanh_thao": "Mức độ thành thạo tự đánh giá",
     }

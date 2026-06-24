@@ -94,7 +94,7 @@ def rubric_to_xlsx(rubric: dict) -> bytes:
     # ---------- Sheet 3: Bảng nhập điểm (tự tính tổng + xếp loại) ----------
     ws3 = wb.create_sheet("Bang_diem")
     info = [("BẢNG NHẬP ĐIỂM HỘI ĐỒNG – DNU AI-ASSESS 2026", ""),
-            ("Họ tên GV:", ""), ("Mã GV:", ""), ("Khoa/Bộ môn:", ""),
+            ("Họ tên GV:", ""), ("Mã GV:", ""), ("Đơn vị/Bộ môn:", ""),
             ("Học phần:", ""), ("Thành viên Hội đồng chấm:", "")]
     for label, val in info:
         ws3.append([label, val])

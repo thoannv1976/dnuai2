@@ -17,7 +17,8 @@
   <table class="w-full text-sm mt-5">
     <tr><td class="py-1 text-slate-500 w-44">Họ và tên</td><td class="font-semibold">{{ owner.ho_ten }}</td></tr>
     <tr><td class="py-1 text-slate-500">Mã giảng viên</td><td>{{ owner.ma_gv }}</td></tr>
-    <tr><td class="py-1 text-slate-500">Khoa / Bộ môn</td><td>{{ pa.khoa_bo_mon or owner.khoa }}</td></tr>
+    {% if owner.chuc_vu %}<tr><td class="py-1 text-slate-500">Chức vụ</td><td>{{ owner.chuc_vu }}</td></tr>{% endif %}
+    <tr><td class="py-1 text-slate-500">Đơn vị / Bộ môn</td><td>{{ pa.khoa_bo_mon or owner.khoa }}</td></tr>
     <tr><td class="py-1 text-slate-500">Học phần thực hiện</td><td>{{ pa.hoc_phan }}</td></tr>
     <tr><td class="py-1 text-slate-500">Công cụ AI sử dụng</td><td>{{ (pa.cong_cu_ai or []) | join(', ') }}</td></tr>
   </table>

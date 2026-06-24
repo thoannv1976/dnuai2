@@ -59,7 +59,7 @@ gcloud scheduler jobs create http dnu-cron --schedule "*/30 * * * *" \
 ```
 
 Sau triển khai: đăng nhập admin → **/admin/users** import danh sách giảng viên
-(CSV: `ma_gv,ho_ten,email,khoa,bo_mon,role,password`). Không có cột `password` → dùng mật khẩu mặc định `DEFAULT_PASSWORD`.
+(CSV: `ma_gv,ho_ten,email,don_vi,bo_mon,chuc_vu,role,password`; vẫn nhận cột cũ `khoa`). Không có cột `password` → dùng mật khẩu mặc định `DEFAULT_PASSWORD`.
 
 ## 4. Biến môi trường chính
 

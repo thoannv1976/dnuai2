@@ -203,7 +203,7 @@ def build_screens() -> dict[str, Path]:
     # 5. Hội đồng — danh sách thẩm định
     s["council_list"] = render("council_list", screen("council",
         "<div class='h1'>Thẩm định hồ sơ</div>"
-        + tbl(["Giảng viên", "Khoa", "Hợp lệ", "Điểm AI", "Thẩm định bắt buộc", "Trạng thái", ""], [
+        + tbl(["Giảng viên", "Đơn vị", "Hợp lệ", "Điểm AI", "Thẩm định bắt buộc", "Trạng thái", ""], [
             ["<b>Lê Minh Châu</b> GV003", "CNTT", "✓", "<b>88</b> ✓AI", "<span class='pill pill-amber'>⚠ Bắt buộc</span>", "Đã chấm", "<b style='color:#c2410c'>Thẩm định →</b>"],
             ["<b>Nguyễn Văn An</b> GV001", "CNTT", "✓", "<b>78</b> ✓AI", "–", "Đã chấm", "<b style='color:#c2410c'>Thẩm định →</b>"],
             ["<b>Trần Thị Bình</b> GV002", "CNTT", "✓", "<b>65</b> ✓AI", "–", "Đã chấm", "<b style='color:#c2410c'>Thẩm định →</b>"],
@@ -213,7 +213,7 @@ def build_screens() -> dict[str, Path]:
     # 6. Hội đồng — chi tiết chấm
     s["council_detail"] = render("council_detail", screen("council",
         "<div class='muted' style='font-size:13px'>← Danh sách hồ sơ</div>"
-        "<div class='h1'>Nguyễn Văn An <span class='muted' style='font-size:15px'>(GV001 — CNTT)</span> "
+        "<div class='h1'>Nguyễn Văn An <span class='muted' style='font-size:15px'>(GV001 — CNTT · Giảng viên)</span> "
         "<span class='pill pill-slate'>graded</span> <span style='float:right'>Tổng hiện tại: <b style='color:#c2410c'>78</b>/100</span></div>"
         "<div class='card' style='background:#fffdf7'><b>Chấm tự động bằng AI</b> "
         "<span class='muted'>— đã chấm · điểm AI 78/100</span> "
@@ -230,7 +230,7 @@ def build_screens() -> dict[str, Path]:
     s["scores"] = render("scores", screen("council",
         "<div class='h1'>Bảng điểm giảng viên <span class='muted' style='font-size:14px'>Đã chấm: 3/4 hồ sơ</span> "
         "<span class='btn btn-green btn-sm' style='float:right'>⬇ Tải Excel</span></div>"
-        + tbl(["Mã GV", "Họ tên", "Khoa", "B", "C", "D", "E", "F", "G", "Tổng", "Mức", "Tính chất"], [
+        + tbl(["Mã GV", "Họ tên", "Đơn vị", "B", "C", "D", "E", "F", "G", "Tổng", "Mức", "Tính chất"], [
             ["GV003", "Lê Minh Châu", "CNTT", "18", "37", "9", "18", "4", "4", "<b style='color:#c2410c'>88</b>", "Dẫn dắt", "<span style='color:#b45309'>Tạm tính</span>"],
             ["GV001", "Nguyễn Văn An", "CNTT", "16", "31", "8", "16", "4", "3", "<b style='color:#c2410c'>78</b>", "Thành thạo", "<span style='color:#047857'>Chính thức</span>"],
             ["GV002", "Trần Thị Bình", "CNTT", "13", "26", "7", "13", "3", "3", "<b style='color:#c2410c'>65</b>", "Cơ bản", "<span style='color:#b45309'>Tạm tính</span>"],
@@ -272,19 +272,19 @@ def build_screens() -> dict[str, Path]:
     s["admin_users"] = render("admin_users", screen("admin",
         "<div class='h1'>Người dùng (500)</div>"
         "<div class='row'><div class='col' style='flex:2'><div class='card' style='padding:0'>"
-        + tbl(["Mã GV", "Họ tên", "Email", "Khoa", "Vai trò", ""], [
-            ["GV001", "Nguyễn Văn An", "gv001@dainam.edu.vn", "CNTT", "Giảng viên", "Đặt mật khẩu · Khóa"],
-            ["HD001", "Phạm Hội Đồng", "hoidong@dainam.edu.vn", "—", "Hội đồng", "Đặt mật khẩu · Khóa"],
+        + tbl(["Mã GV", "Họ tên", "Email", "Đơn vị", "Chức vụ", "Vai trò", ""], [
+            ["GV001", "Nguyễn Văn An", "gv001@dainam.edu.vn", "CNTT", "Giảng viên", "Giảng viên", "Đặt mật khẩu · Khóa"],
+            ["HD001", "Phạm Hội Đồng", "hoidong@dainam.edu.vn", "—", "Thành viên HĐ", "Hội đồng", "Đặt mật khẩu · Khóa"],
         ]) + "</div></div>"
         "<div class='col'><div class='card'><b>Import danh sách (CSV)</b>"
-        "<div class='muted' style='font-size:12px;margin-top:4px'>Cột: ma_gv, ho_ten, email, khoa, bo_mon, role, password</div>"
+        "<div class='muted' style='font-size:12px;margin-top:4px'>Cột: ma_gv, ho_ten, email, don_vi, bo_mon, chuc_vu, role, password</div>"
         "<div class='in'>Chọn tệp .csv</div><div class='btn btn-org btn-sm' style='margin-top:8px'>Import</div></div></div></div>"))
 
     # 11. Admin — tải sản phẩm
     s["admin_dl"] = render("admin_dl", screen("admin",
         "<div class='h1'>Tải sản phẩm giảng viên "
         "<span class='btn btn-green btn-sm' style='float:right'>⬇ Tải toàn bộ tất cả giảng viên (ZIP)</span></div>"
-        + tbl(["Mã GV", "Họ tên", "Khoa", "Tệp", "Liên kết", "Trạng thái", "Tải về"], [
+        + tbl(["Mã GV", "Họ tên", "Đơn vị", "Tệp", "Liên kết", "Trạng thái", "Tải về"], [
             ["GV001", "Nguyễn Văn An", "CNTT", "11", "2", "Đã chấm", "<b style='color:#c2410c'>⬇ ZIP</b>"],
             ["GV002", "Trần Thị Bình", "CNTT", "9", "1", "Đã nộp", "<b style='color:#c2410c'>⬇ ZIP</b>"],
             ["GV003", "Lê Minh Châu", "CNTT", "12", "3", "Đã duyệt", "<b style='color:#c2410c'>⬇ ZIP</b>"],

@@ -18,7 +18,7 @@
 
 <div class="grid lg:grid-cols-2 gap-5 mb-6">
   <div class="bg-white rounded-xl shadow p-5">
-    <h2 class="font-semibold mb-3">Tiến độ nộp theo khoa</h2>
+    <h2 class="font-semibold mb-3">Tiến độ nộp theo đơn vị</h2>
     <canvas id="khoaChart" height="220"></canvas>
   </div>
   <div class="bg-white rounded-xl shadow p-5">
@@ -31,10 +31,10 @@
 </div>
 
 <div class="bg-white rounded-xl shadow p-5 mb-6 overflow-x-auto">
-  <h2 class="font-semibold mb-2">Tiến độ chi tiết theo khoa/bộ môn</h2>
+  <h2 class="font-semibold mb-2">Tiến độ chi tiết theo đơn vị</h2>
   <table class="w-full text-sm">
     <thead><tr class="text-left text-xs text-slate-400 border-b">
-      <th class="py-2">Khoa</th><th class="text-center">Giảng viên</th><th class="text-center">Đã nộp</th>
+      <th class="py-2">Đơn vị</th><th class="text-center">Giảng viên</th><th class="text-center">Đã nộp</th>
       <th class="text-center">Đã chấm</th><th class="text-center">Đã duyệt</th><th class="text-center">Đã công bố</th>
       <th class="text-center">Tỷ lệ nộp</th>
     </tr></thead>
@@ -56,7 +56,7 @@
   <h2 class="font-semibold mb-2">Danh sách đề xuất giảng viên nòng cốt (mức Dẫn dắt, ≥85 điểm)</h2>
   <table class="w-full text-sm">
     <thead><tr class="text-left text-xs text-slate-400 border-b">
-      <th class="py-2">#</th><th>Giảng viên</th><th>Khoa</th><th class="text-center">Tổng điểm</th><th></th>
+      <th class="py-2">#</th><th>Giảng viên</th><th>Đơn vị</th><th class="text-center">Tổng điểm</th><th></th>
     </tr></thead>
     <tbody>
       {% for c in summary.core_list %}

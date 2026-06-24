@@ -7,7 +7,7 @@
   <span class="text-sm text-slate-500">Đã chấm: <b>{{ graded }}</b>/{{ rows | length }} hồ sơ</span>
   <form method="get" class="ml-auto flex gap-2 text-sm">
     <select name="khoa" class="border rounded-lg px-2 py-1.5">
-      <option value="">— Tất cả khoa —</option>
+      <option value="">— Tất cả đơn vị —</option>
       {% for k in khoas %}<option value="{{ k }}" {{ 'selected' if k == khoa }}>{{ k }}</option>{% endfor %}
     </select>
     <button class="bg-slate-700 text-white rounded-lg px-4">Lọc</button>
@@ -24,7 +24,7 @@
 <div class="bg-white rounded-xl shadow overflow-x-auto">
   <table class="w-full text-sm">
     <thead><tr class="text-left text-xs text-slate-400 border-b">
-      <th class="px-3 py-2.5">Mã GV</th><th class="px-2 py-2.5">Họ tên</th><th class="px-2 py-2.5">Khoa</th>
+      <th class="px-3 py-2.5">Mã GV</th><th class="px-2 py-2.5">Họ tên</th><th class="px-2 py-2.5">Đơn vị</th>
       {% for p in parts %}<th class="px-1 py-2.5 text-center" title="{{ rubric.parts[p].name }}">{{ p }}<br><span class="text-slate-300">/{{ rubric.parts[p].max_score }}</span></th>{% endfor %}
       <th class="px-2 py-2.5 text-center">Tổng</th><th class="px-2 py-2.5">Mức</th>
       <th class="px-2 py-2.5">Tính chất</th><th class="px-3 py-2.5"></th>

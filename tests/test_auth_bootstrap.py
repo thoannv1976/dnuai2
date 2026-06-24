@@ -84,3 +84,31 @@ def test_import_csv_sets_default_password(client, store):
     # mật khẩu mặc định DNU@2026 (DEFAULT_PASSWORD chưa đặt trong test → mặc định)
     assert client.post("/login", data={"login_id": "imp@dainam.edu.vn", "password": "DNU@2026"},
                        follow_redirects=False).status_code == 303
+
+
+def test_import_csv_don_vi_and_chuc_vu(client, store):
+    """Cột mới don_vi/chuc_vu/ma_dinh_danh được nhận; don_vi lưu nội bộ ở khóa 'khoa'."""
+    login(client, "admin@dainam.edu.vn")
+    csv_text = (
+        "ma_dinh_danh,ho_ten,email,don_vi,bo_mon,chuc_vu,role\n"
+        "GV200,Đơn Vị Mới,donvi@dainam.edu.vn,Khoa CT-QP-TC,,Trưởng khoa,lecturer"
+    )
+    resp = client.post("/admin/users/import", data={"csv_text": csv_text}, follow_redirects=False)
+    assert resp.status_code == 303
+    u = store.find_one("users", email="donvi@dainam.edu.vn")
+    assert u is not None
+    assert u["ma_gv"] == "GV200"          # alias ma_dinh_danh → ma_gv
+    assert u["khoa"] == "Khoa CT-QP-TC"   # alias don_vi → khoa (lưu nội bộ)
+    assert u["chuc_vu"] == "Trưởng khoa"
+
+
+def test_add_user_stores_chuc_vu(client, store):
+    login(client, "admin@dainam.edu.vn")
+    resp = client.post("/admin/users/add", data={
+        "ho_ten": "GV Chức Vụ", "email": "cv@dainam.edu.vn", "ma_gv": "GV300",
+        "khoa": "Quản trị kinh doanh", "bo_mon": "Marketing", "chuc_vu": "Phó Trưởng khoa",
+        "role": "lecturer", "password": "matkhau1",
+    }, follow_redirects=False)
+    assert resp.status_code == 303
+    u = store.find_one("users", email="cv@dainam.edu.vn")
+    assert u and u["chuc_vu"] == "Phó Trưởng khoa" and u["khoa"] == "Quản trị kinh doanh"

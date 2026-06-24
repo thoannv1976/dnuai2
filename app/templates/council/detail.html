@@ -4,7 +4,7 @@
 <a href="/council" class="text-sm text-slate-500 hover:underline">← Danh sách hồ sơ</a>
 
 <div class="flex flex-wrap items-center gap-3 mt-2 mb-4">
-  <h1 class="text-xl font-bold">{{ owner.ho_ten }} <span class="text-slate-400 text-base">({{ owner.ma_gv }} — {{ owner.khoa }})</span></h1>
+  <h1 class="text-xl font-bold">{{ owner.ho_ten }} <span class="text-slate-400 text-base">({{ owner.ma_gv }} — {{ owner.khoa }}{% if owner.chuc_vu %} · {{ owner.chuc_vu }}{% endif %})</span></h1>
   <span class="text-sm px-2.5 py-1 rounded-full bg-slate-200">{{ sub.status }}</span>
   {% if review and review.mandatory %}
   <span class="text-sm px-2.5 py-1 rounded-full bg-amber-100 text-amber-700" title="{{ review.mandatory_reason }}">

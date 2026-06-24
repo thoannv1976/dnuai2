@@ -1,7 +1,7 @@
 """Đóng gói sản phẩm/minh chứng của giảng viên thành file ZIP để Admin tải về.
 
 Ghi theo luồng (shutil.copyfileobj) ra tệp tạm để không nạp toàn bộ tệp lớn vào RAM.
-Cấu trúc: <Khoa>/<MãGV_HọTên>/Phan<X>_SanPham|MinhChung/<tên tệp>, kèm PhanA_ThongTin.txt,
+Cấu trúc: <ĐơnVị>/<MãGV_HọTên>/Phan<X>_SanPham|MinhChung/<tên tệp>, kèm PhanA_ThongTin.txt,
 LIEN_KET.txt (các liên kết), và DANH_SACH.csv ở gốc (khi tải toàn bộ).
 """
 from __future__ import annotations
@@ -46,7 +46,8 @@ def _add_submission(zf: zipfile.ZipFile, store, storage, sub: dict, user: dict, 
     info = (
         f"Họ tên: {pa.get('ho_ten', '')}\n"
         f"Mã GV: {pa.get('ma_gv', '')}\n"
-        f"Khoa/Bộ môn: {pa.get('khoa_bo_mon', '')}\n"
+        f"Chức vụ: {user.get('chuc_vu', '')}\n"
+        f"Đơn vị/Bộ môn: {pa.get('khoa_bo_mon', '')}\n"
         f"Học phần: {pa.get('hoc_phan', '')}\n"
         f"Công cụ AI: {', '.join(pa.get('cong_cu_ai') or [])}\n"
         f"Mức tự đánh giá: {pa.get('muc_thanh_thao', '')}\n"
@@ -96,13 +97,13 @@ def build_all_zip(store, storage, khoa: str = "") -> tuple[str, str]:
         subs = [s for s in subs if (users[s["user_id"]].get("khoa") or "") == khoa]
 
     tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".zip")
-    rows = [["Mã GV", "Họ tên", "Khoa", "Bộ môn", "Trạng thái", "Số tệp"]]
+    rows = [["Mã GV", "Họ tên", "Đơn vị", "Bộ môn", "Chức vụ", "Trạng thái", "Số tệp"]]
     with zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEFLATED) as zf:
         for s in subs:
             u = users[s["user_id"]]
-            n = _add_submission(zf, store, storage, s, u, base=_safe(u.get("khoa") or "KhongRoKhoa"))
+            n = _add_submission(zf, store, storage, s, u, base=_safe(u.get("khoa") or "KhongRoDonVi"))
             rows.append([u.get("ma_gv", ""), u.get("ho_ten", ""), u.get("khoa", ""),
-                         u.get("bo_mon", ""), s.get("status", ""), n])
+                         u.get("bo_mon", ""), u.get("chuc_vu", ""), s.get("status", ""), n])
         buf = io.StringIO()
         csv.writer(buf).writerows(rows)
         zf.writestr("DANH_SACH.csv", "﻿" + buf.getvalue())  # BOM để Excel đọc đúng tiếng Việt

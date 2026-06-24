@@ -19,15 +19,15 @@ from app.storage import create_storage  # noqa: E402
 
 USERS = [
     {"ma_gv": "GV001", "ho_ten": "Nguyễn Văn An", "email": "gv001@dainam.edu.vn",
-     "khoa": "Công nghệ thông tin", "bo_mon": "Kỹ thuật phần mềm", "role": "lecturer"},
+     "khoa": "Công nghệ thông tin", "bo_mon": "Kỹ thuật phần mềm", "chuc_vu": "Giảng viên", "role": "lecturer"},
     {"ma_gv": "GV002", "ho_ten": "Trần Thị Bình", "email": "gv002@dainam.edu.vn",
-     "khoa": "Công nghệ thông tin", "bo_mon": "Hệ thống thông tin", "role": "lecturer"},
+     "khoa": "Công nghệ thông tin", "bo_mon": "Hệ thống thông tin", "chuc_vu": "Trưởng bộ môn", "role": "lecturer"},
     {"ma_gv": "GV003", "ho_ten": "Lê Minh Châu", "email": "gv003@dainam.edu.vn",
-     "khoa": "Quản trị kinh doanh", "bo_mon": "Marketing", "role": "lecturer"},
+     "khoa": "Quản trị kinh doanh", "bo_mon": "Marketing", "chuc_vu": "Giảng viên", "role": "lecturer"},
     {"ma_gv": "HD001", "ho_ten": "Phạm Hội Đồng", "email": "hoidong@dainam.edu.vn",
-     "khoa": "", "bo_mon": "", "role": "council"},
+     "khoa": "", "bo_mon": "", "chuc_vu": "Thành viên Hội đồng", "role": "council"},
     {"ma_gv": "QT001", "ho_ten": "Quản Trị Viên", "email": "admin@dainam.edu.vn",
-     "khoa": "", "bo_mon": "", "role": "admin"},
+     "khoa": "", "bo_mon": "", "chuc_vu": "Quản trị hệ thống", "role": "admin"},
 ]
 
 SAMPLE_DOCS = {

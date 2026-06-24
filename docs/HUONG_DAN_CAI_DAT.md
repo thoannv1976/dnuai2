@@ -78,7 +78,7 @@ gcloud scheduler jobs create http dnu-cron --location asia-southeast1 \
 
 1. Mở **Địa chỉ hệ thống**, đăng nhập tài khoản **quản trị** (email + mật khẩu in ra khi cài). Vào **Đổi mật khẩu** để đặt mật khẩu mới.
 2. Vào **Cấu hình AI**: nạp/kiểm tra **Claude API key** (nếu chưa đặt khi cài), bấm **Kiểm tra kết nối Claude**.
-3. Vào **Người dùng → Import (CSV)**: tải danh sách giảng viên theo mẫu `docs/mau_import_giang_vien.csv` (cột `ma_gv,ho_ten,email,khoa,bo_mon,role,password`).
+3. Vào **Người dùng → Import (CSV)**: tải danh sách giảng viên theo mẫu `docs/mau_import_giang_vien.csv` (cột `ma_gv,ho_ten,email,don_vi,bo_mon,chuc_vu,role,password`; vẫn nhận cột cũ `khoa`).
 4. Vào **Cấu hình**: kiểm tra mốc thời gian (mở nộp, hạn nộp). Cron tự nhắc hạn 24h và khóa hồ sơ đúng hạn.
 5. Kiểm tra nhanh sức khỏe hệ thống: mở `<URL>/healthz` (trả về `{"ok": true}`).
 
