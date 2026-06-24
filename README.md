@@ -16,10 +16,22 @@ Hệ thống tiếp nhận hồ sơ và **chấm điểm tự động bằng AI*
 |---|---|
 | Backend | Python 3.12 · FastAPI |
 | Frontend | Jinja2 · TailwindCSS · Alpine.js · Chart.js (tiếng Việt, responsive) |
-| Chấm AI | Claude API (`claude-opus-4-8`, structured outputs, Batches API) |
+| Chấm AI | Claude API (`claude-opus-4-8`, structured outputs) — chấm từng hồ sơ theo yêu cầu |
 | Dữ liệu | Firestore + Google Cloud Storage (production) · SQLite + thư mục cục bộ (dev) |
-| Xác thực | Google Workspace SSO (email DNU) · 3 vai trò: giảng viên / hội đồng / quản trị |
+| Xác thực | Đăng nhập ID (email/mã GV) + mật khẩu · 3 vai trò: giảng viên / hội đồng / quản trị |
 | Triển khai | Docker · Google Cloud Run · Cloud Scheduler |
+
+## Cài đặt & bàn giao
+
+Cài lên Google Cloud của Trường bằng **một lệnh** (trong Google Cloud Shell):
+
+```bash
+export ANTHROPIC_API_KEY="sk-ant-..."
+PROJECT_ID="<project>" ADMIN_EMAIL="admin@dainam.edu.vn" bash deploy/deploy.sh
+```
+
+- 📦 Đóng gói bộ cài bàn giao: `bash scripts/build_bundle.sh` → `dist/DNU-AI-Assess-banbangiao.zip`
+- 🚀 **[Hướng dẫn cài đặt GCP](docs/HUONG_DAN_CAI_DAT.md)** · 📋 **[Danh mục bàn giao](docs/DANH_MUC_BAN_GIAO.md)**
 
 ## Chạy nhanh (demo cục bộ, không cần GCP)
 
