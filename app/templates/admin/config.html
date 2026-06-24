@@ -30,7 +30,11 @@
   <div id="ai" class="bg-white rounded-xl shadow p-5 ring-2 ring-orange-200">
     <h2 class="font-semibold">🔑 Cấu hình AI chấm điểm</h2>
     {% if request.query_params.get('ai') %}<div class="bg-emerald-50 border border-emerald-200 rounded p-2 mt-2 text-xs">Đã lưu cấu hình AI.</div>{% endif %}
-    {% if request.query_params.get('ai_test') %}<div class="bg-blue-50 border border-blue-200 rounded p-2 mt-2 text-xs">{{ request.query_params.get('ai_test') }}</div>{% endif %}
+    {% if request.query_params.get('ai_test') %}
+      {% set _ok = 'thành công' in request.query_params.get('ai_test') %}
+      <div class="rounded p-2 mt-2 text-xs border {{ 'bg-emerald-50 border-emerald-200 text-emerald-700' if _ok else 'bg-amber-50 border-amber-300 text-amber-800' }}">
+        {{ request.query_params.get('ai_test') }}</div>
+    {% endif %}
     <table class="text-sm mt-3 w-full">
       <tr><td class="py-1 text-slate-500 w-40">Bộ chấm hiện dùng</td>
         <td><b class="{{ 'text-emerald-700' if ai_cfg.grader == 'claude' else 'text-amber-600' }}">

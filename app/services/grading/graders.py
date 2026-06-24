@@ -13,6 +13,40 @@ from app.services.grading.prompts import system_prompt, user_prompt
 logger = logging.getLogger("dnu.grading")
 
 
+def is_transient_error(exc: Exception) -> bool:
+    """Lỗi tạm thời nên thử lại: quá tải (529), giới hạn tần suất (429), 5xx, lỗi mạng/timeout.
+
+    Lỗi cấu hình (key sai 401, không có quyền 403, sai model 404, yêu cầu sai 400)
+    KHÔNG tạm thời → không thử lại, báo ngay cho Admin.
+    """
+    status = getattr(exc, "status_code", None)
+    if isinstance(status, int) and (status == 429 or status >= 500):
+        return True
+    return type(exc).__name__ in {
+        "OverloadedError", "InternalServerError", "RateLimitError",
+        "APITimeoutError", "APIConnectionError",
+    }
+
+
+def friendly_ai_error(exc: Exception, model: str = "") -> str:
+    """Thông điệp dễ hiểu cho Admin, phân biệt lỗi tạm thời và lỗi cấu hình."""
+    status = getattr(exc, "status_code", None)
+    name = type(exc).__name__
+    text = str(exc).lower()
+    if status == 529 or name == "OverloadedError" or "overloaded" in text:
+        return ("Máy chủ Claude đang quá tải (529 Overloaded) — lỗi tạm thời từ phía Anthropic, "
+                "KHÔNG phải do API key. Vui lòng thử lại sau ít phút.")
+    if status == 401 or name == "AuthenticationError":
+        return "API key không hợp lệ hoặc đã bị thu hồi (401). Vui lòng nạp lại key."
+    if status == 403 or name == "PermissionDeniedError":
+        return "API key không có quyền dùng model này (403). Kiểm tra quyền và hạn mức tài khoản Anthropic."
+    if status == 404 or name == "NotFoundError":
+        return f"Không tìm thấy model '{model}' (404). Kiểm tra lại tên model."
+    if status == 429 or name == "RateLimitError":
+        return "Đã chạm giới hạn tần suất gọi (429). Thử lại sau ít phút hoặc giảm tốc độ chấm."
+    return f"Lỗi kết nối: {name}: {exc}"[:200]
+
+
 class Grader(ABC):
     name = "base"
 
@@ -64,7 +98,8 @@ class ClaudeGrader(Grader):
 
     - Structured output (messages.parse + Pydantic) → kết quả luôn đúng schema.
     - System prompt chứa rubric gắn cache_control → các hồ sơ cùng Phần dùng lại cache.
-    - SDK tự retry 429/5xx; bọc thêm 3 lần thử cho lỗi khác.
+    - SDK tự retry 429/5xx; bọc thêm lần thử cho lỗi tạm thời (quá tải 529, mạng),
+      dừng ngay với lỗi cấu hình (key/model sai) để khỏi tốn thời gian.
     """
 
     name = "claude"
@@ -84,7 +119,8 @@ class ClaudeGrader(Grader):
         }]
         msg = user_prompt(part, context, products_text, evidence_text)
         last_exc: Exception | None = None
-        for attempt in range(3):
+        attempts = 4
+        for attempt in range(attempts):
             try:
                 response = self.client.messages.parse(
                     model=self.model,
@@ -102,11 +138,15 @@ class ClaudeGrader(Grader):
                 if result is None:
                     raise ValueError("Claude không trả về kết quả đúng schema")
                 return result
-            except Exception as exc:  # noqa: BLE001 — retry mọi lỗi tạm thời
+            except Exception as exc:  # noqa: BLE001 — phân loại tạm thời / cấu hình
                 last_exc = exc
                 logger.warning("Lỗi chấm %s lượt %s (lần %s): %s", part, pass_no, attempt + 1, exc)
-                time.sleep(2 ** attempt)
-        raise RuntimeError(f"Chấm Phần {part} thất bại sau 3 lần thử: {last_exc}")
+                # ValueError = output lệch schema (thử lại); lỗi cấu hình (key/model) → dừng ngay
+                retryable = isinstance(exc, ValueError) or is_transient_error(exc)
+                if not retryable or attempt == attempts - 1:
+                    break
+                time.sleep(2 * (attempt + 1))  # backoff 2s, 4s, 6s cho lỗi quá tải
+        raise RuntimeError(f"Chấm Phần {part} thất bại: {friendly_ai_error(last_exc, self.model)}")
 
 
 def create_grader(settings, store=None) -> Grader:

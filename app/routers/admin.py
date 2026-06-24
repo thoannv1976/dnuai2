@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import csv
 import io
+import time
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile
 from fastapi.responses import RedirectResponse
@@ -234,27 +235,37 @@ def config_ai(request: Request, api_key: str = Form(""), model: str = Form(""),
 
 @router.post("/config/ai/test")
 def config_ai_test(request: Request, user: dict = admin_dep):
-    """Gọi thử Claude một lần để kiểm tra API key + ghi nhận usage."""
+    """Gọi thử Claude để kiểm tra API key + model, tự thử lại khi máy chủ quá tải (529)."""
     from app.services.ai_config import get_ai_config
     from app.services.ai_usage import record_usage
+    from app.services.grading.graders import friendly_ai_error, is_transient_error
 
     store = request.app.state.store
     cfg = get_ai_config(store)
     if cfg["grader"] != "claude" or not cfg["has_key"]:
         return RedirectResponse("/admin/config?ai_test=Chưa+cấu+hình+API+key+Claude", status_code=303)
-    try:
-        import anthropic
 
-        client = anthropic.Anthropic(api_key=cfg["api_key"], max_retries=1)
-        resp = client.messages.create(
-            model=cfg["model"], max_tokens=16,
-            messages=[{"role": "user", "content": "Trả lời đúng một từ: OK"}],
-        )
-        record_usage(store, cfg["model"], getattr(resp, "usage", None), kind="test")
-        msg = "Kết nối Claude thành công"
-    except Exception as exc:  # noqa: BLE001 — báo lỗi gọn cho admin
-        msg = f"Lỗi kết nối: {type(exc).__name__}: {exc}"[:200]
-    audit.log(store, user, "test_ai", "config/ai", note=msg)
+    import anthropic
+
+    client = anthropic.Anthropic(api_key=cfg["api_key"], max_retries=2)
+    msg, last_exc, attempts = "", None, 4
+    for attempt in range(attempts):
+        try:
+            resp = client.messages.create(
+                model=cfg["model"], max_tokens=16,
+                messages=[{"role": "user", "content": "Trả lời đúng một từ: OK"}],
+            )
+            record_usage(store, cfg["model"], getattr(resp, "usage", None), kind="test")
+            msg = "Kết nối Claude thành công ✓"
+            break
+        except Exception as exc:  # noqa: BLE001 — phân loại tạm thời / cấu hình
+            last_exc = exc
+            if not is_transient_error(exc) or attempt == attempts - 1:
+                break
+            time.sleep(2 * (attempt + 1))  # backoff 2s, 4s, 6s khi Claude quá tải
+    if not msg:
+        msg = friendly_ai_error(last_exc, cfg["model"])
+    audit.log(store, user, "test_ai", "config/ai", note=msg[:200])
     from urllib.parse import quote
 
     return RedirectResponse(f"/admin/config?ai_test={quote(msg)}", status_code=303)

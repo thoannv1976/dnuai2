@@ -3,8 +3,44 @@ from types import SimpleNamespace
 
 from app.services.ai_config import get_ai_config, set_ai_config
 from app.services.ai_usage import cost_usd, get_stats, record_usage, reset_stats
-from app.services.grading.graders import MockGrader, create_grader
+from app.services.grading.graders import (
+    MockGrader,
+    create_grader,
+    friendly_ai_error,
+    is_transient_error,
+)
 from tests.conftest import login
+
+
+class _Overloaded(Exception):
+    status_code = 529
+
+
+class _AuthError(Exception):
+    status_code = 401
+
+
+class OverloadedError(Exception):  # phân loại theo tên lớp (SDK anthropic)
+    pass
+
+
+class APIConnectionError(Exception):
+    pass
+
+
+def test_is_transient_error_classification():
+    assert is_transient_error(_Overloaded()) is True          # 529 quá tải
+    assert is_transient_error(OverloadedError()) is True       # theo tên lớp
+    assert is_transient_error(APIConnectionError()) is True    # lỗi mạng
+    assert is_transient_error(_AuthError()) is False           # 401 key sai → không thử lại
+    assert is_transient_error(ValueError("schema")) is False   # không phải lỗi API
+
+
+def test_friendly_ai_error_messages():
+    overloaded = friendly_ai_error(_Overloaded())
+    assert "quá tải" in overloaded and "529" in overloaded and "API key" in overloaded
+    assert "không hợp lệ" in friendly_ai_error(_AuthError())
+    assert "404" in friendly_ai_error(type("NotFoundError", (Exception,), {"status_code": 404})(), "model-x")
 
 
 def test_cost_estimate_opus():
