@@ -10,7 +10,7 @@ from fastapi.responses import RedirectResponse
 
 from app.auth import require_role, set_password
 from app.config import ROLE_ADMIN, ROLE_COUNCIL, ROLE_LECTURER, get_settings, now_vn
-from app.rubric import get_rubric
+from app.rubric import get_rubric, load_rubric_seed, reload_rubric
 from app.security import hash_password
 from app.services import audit
 from app.services.ops import get_timeline, lock_all, publish_all, send_reminders
@@ -176,8 +176,11 @@ def config_page(request: Request, user: dict = admin_dep):
     from app.services.ai_usage import get_stats
 
     store = request.app.state.store
+    graded_count = sum(1 for s in store.all("submissions")
+                       if s.get("ai_graded") or s.get("status") in ("graded", "approved", "published"))
     return render(request, "admin/config.html", user, timeline=get_timeline(store),
-                  rubric=get_rubric(store), settings=get_settings(),
+                  rubric=get_rubric(store), seed_version=load_rubric_seed().get("version", ""),
+                  graded_count=graded_count, settings=get_settings(),
                   ai_cfg=get_ai_config(store), ai_stats=get_stats(store))
 
 
@@ -205,6 +208,24 @@ def rubric_docx(request: Request, user: dict = admin_dep):
         data, media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         headers={"Content-Disposition": f"attachment; filename=DNU-Rubric-HoiDong-{now_vn():%Y%m%d}.docx"},
     )
+
+
+@router.post("/rubric/reload")
+def rubric_reload(request: Request, user: dict = admin_dep):
+    """Nạp lại rubric mới nhất kèm theo phần mềm (ghi đè config/rubric).
+
+    An toàn: chỉ cập nhật rubric chấm điểm, không xóa hồ sơ/điểm/người dùng.
+    """
+    from urllib.parse import quote
+
+    store = request.app.state.store
+    old_v, new_v = reload_rubric(store)
+    audit.log(store, user, "reload_rubric", "config/rubric",
+              before={"version": old_v}, after={"version": new_v},
+              note=f"Nạp lại rubric {old_v or '(chưa có)'} → {new_v}")
+    msg = (f"Đã nạp lại rubric mới nhất: {old_v or '(chưa có)'} → {new_v}."
+           if old_v != new_v else f"Rubric đã là bản mới nhất ({new_v}).")
+    return RedirectResponse(f"/admin/config?rubric_msg={quote(msg)}", status_code=303)
 
 
 @router.post("/config/timeline")

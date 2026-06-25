@@ -52,3 +52,27 @@ def test_admin_can_download_rubric(client):
 def test_lecturer_cannot_download_rubric(client):
     login(client, "gv001@dainam.edu.vn")
     assert client.get("/admin/rubric.xlsx", follow_redirects=False).status_code == 403
+
+
+def test_admin_reload_rubric_updates_and_keeps_data(client, store):
+    from app.rubric import get_rubric
+
+    login(client, "admin@dainam.edu.vn")
+    # Giả lập rubric cũ trong DB + dữ liệu khác để chứng minh không bị xóa
+    store.put("config", "rubric", {"id": "rubric", "version": "0000.0", "parts": {}, "classification": []})
+    store.add("submissions", {"user_id": "u-gv1", "status": "graded"})
+    users_before = len(store.all("users"))
+    subs_before = len(store.all("submissions"))
+
+    r = client.post("/admin/rubric/reload", follow_redirects=False)
+    assert r.status_code == 303
+    # rubric đã cập nhật lên bản seed mới nhất
+    assert get_rubric(store)["version"] == load_rubric_seed()["version"]
+    # các dữ liệu khác còn nguyên
+    assert len(store.all("users")) == users_before
+    assert len(store.all("submissions")) == subs_before
+
+
+def test_lecturer_cannot_reload_rubric(client):
+    login(client, "gv001@dainam.edu.vn")
+    assert client.post("/admin/rubric/reload", follow_redirects=False).status_code == 403

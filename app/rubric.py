@@ -21,6 +21,18 @@ def get_rubric(store) -> dict:
     return doc
 
 
+def reload_rubric(store) -> tuple[str | None, str]:
+    """Ghi đè rubric đang dùng (config/rubric) bằng bản mới nhất kèm theo phần mềm.
+
+    An toàn: CHỈ cập nhật config/rubric — không đụng tới hồ sơ, điểm, người dùng hay
+    cấu hình khác. Trả về (phiên bản cũ, phiên bản mới) để ghi nhật ký/thông báo.
+    """
+    old = store.get("config", "rubric") or {}
+    seed = load_rubric_seed()
+    store.put("config", "rubric", {"id": "rubric", **seed})
+    return old.get("version"), seed.get("version", "")
+
+
 def part_rubric(rubric: dict, part: str) -> dict:
     return rubric["parts"][part]
 
