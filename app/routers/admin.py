@@ -68,10 +68,21 @@ def publish(request: Request, user: dict = admin_dep):
 # ---------- người dùng ----------
 
 @router.get("/users")
-def users_page(request: Request, user: dict = admin_dep):
+def users_page(request: Request, page: int = 1, q: str = "", user: dict = admin_dep):
     store = request.app.state.store
     users = sorted(store.all("users"), key=lambda u: (u["role"], u.get("khoa", ""), u.get("ma_gv", "")))
-    return render(request, "admin/users.html", user, users=users, settings=get_settings())
+    q = (q or "").strip()
+    if q:
+        ql = q.lower()
+        fields = ("ho_ten", "email", "ma_gv", "khoa", "chuc_vu", "bo_mon")
+        users = [u for u in users if any(ql in str(u.get(f) or "").lower() for f in fields)]
+    total = len(users)
+    per_page = 50
+    pages = max(1, (total + per_page - 1) // per_page)
+    page = max(1, min(page, pages))
+    start = (page - 1) * per_page
+    return render(request, "admin/users.html", user, users=users[start:start + per_page],
+                  settings=get_settings(), total=total, page=page, pages=pages, per_page=per_page, q=q)
 
 
 @router.post("/users/import")
