@@ -35,6 +35,10 @@ class LocalStorage(FileStorage):
     def save(self, key: str, fileobj: BinaryIO) -> int:
         path = self._path(key)
         path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            fileobj.seek(0)  # đảm bảo đọc từ đầu (tránh ghi tệp rỗng nếu con trỏ ở cuối)
+        except (OSError, ValueError, AttributeError):
+            pass
         size = 0
         with open(path, "wb") as out:
             while chunk := fileobj.read(1024 * 1024):
@@ -65,12 +69,22 @@ class GcsStorage(FileStorage):
 
     def save(self, key: str, fileobj: BinaryIO) -> int:
         blob = self._bucket.blob(key)
-        blob.upload_from_file(fileobj)
+        # rewind=True: tua về đầu trước khi tải lên, tránh ghi blob RỖNG khi con trỏ
+        # tệp không ở vị trí 0 (nguyên nhân tệp tải về bị rỗng).
+        blob.upload_from_file(fileobj, rewind=True)
         blob.reload()
         return blob.size or 0
 
     def open(self, key: str):
-        return self._bucket.blob(key).open("rb")
+        # Tải toàn bộ nội dung blob vào bộ đệm seek được (RAM cho tệp nhỏ, tràn ra đĩa
+        # cho tệp lớn) rồi trả về ở vị trí 0 — đáng tin cậy hơn streaming reader khi
+        # ghép ZIP / trích xuất / phục vụ tệp.
+        import tempfile
+
+        buf = tempfile.SpooledTemporaryFile(max_size=16 * 1024 * 1024)
+        self._bucket.blob(key).download_to_file(buf)
+        buf.seek(0)
+        return buf
 
     def exists(self, key: str) -> bool:
         return self._bucket.blob(key).exists()
