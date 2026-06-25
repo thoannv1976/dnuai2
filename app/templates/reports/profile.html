@@ -8,7 +8,7 @@
 
 <div class="bg-white rounded-xl shadow p-8 max-w-3xl mx-auto">
   <div class="text-center border-b pb-5">
-    <p class="text-sm font-semibold text-slate-500">TRƯỜNG ĐẠI HỌC ĐẠI NAM (DNU)</p>
+    <p class="text-sm font-semibold text-slate-500">{{ ORG_NAME | upper }}</p>
     <h1 class="text-2xl font-extrabold mt-1 text-orange-700">HỒ SƠ NĂNG LỰC ỨNG DỤNG AI</h1>
     <p class="text-sm text-slate-500 mt-1">Chương trình khảo sát, đánh giá năng lực ứng dụng AI của giảng viên năm 2026</p>
   </div>
@@ -74,7 +74,7 @@
   {% endif %}
 
   <p class="text-xs text-slate-400 mt-8 text-center">
-    Kết quả do hệ thống DNU AI-Assess chấm bằng AI và Hội đồng đánh giá cấp Trường phê duyệt ·
+    Kết quả do hệ thống {{ APP_TITLE }} chấm bằng AI và Hội đồng đánh giá cấp Trường phê duyệt ·
     Xuất ngày {{ now.strftime('%d/%m/%Y') }}
   </p>
 </div>

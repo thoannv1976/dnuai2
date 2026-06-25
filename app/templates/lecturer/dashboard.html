@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Hồ sơ của tôi — DNU AI-Assess{% endblock %}
+{% block title %}Hồ sơ của tôi — {{ APP_TITLE }}{% endblock %}
 {% block content %}
 {% set status_labels = {'draft':'Bản nháp','submitted':'Đã nộp','locked':'Đã khóa (hết hạn)','grading':'Đang chấm','graded':'Đã chấm — chờ thẩm định','approved':'Hội đồng đã phê duyệt','published':'Đã công bố kết quả'} %}
 <div class="flex flex-wrap items-center gap-3 mb-5">

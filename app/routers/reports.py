@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import Response
 
 from app.auth import require_role
-from app.config import GRADED_PARTS, ROLE_ADMIN, ROLE_COUNCIL, ROLE_LECTURER, now_vn
+from app.config import GRADED_PARTS, ROLE_ADMIN, ROLE_COUNCIL, ROLE_LECTURER, get_settings, now_vn
 from app.rubric import get_rubric
 from app.services.classify import classify
 
@@ -168,7 +168,8 @@ def scores_xlsx(request: Request, khoa: str = "", user: dict = staff_dep):
     return Response(
         buf.getvalue(),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f"attachment; filename=DNU-BangDiem-{now_vn():%Y%m%d-%H%M}.xlsx"},
+        headers={"Content-Disposition":
+                 f"attachment; filename={get_settings().org_short}-BangDiem-{now_vn():%Y%m%d-%H%M}.xlsx"},
     )
 
 
@@ -214,7 +215,7 @@ def export_xlsx(request: Request, user: dict = staff_dep):
         buf.getvalue(),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition":
-                 f"attachment; filename=DNU-AI-Assess-BaoCao-{now_vn():%Y%m%d}.xlsx"},
+                 f"attachment; filename={get_settings().org_short}-BaoCao-{now_vn():%Y%m%d}.xlsx"},
     )
 
 

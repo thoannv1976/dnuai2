@@ -13,7 +13,7 @@ import shutil
 import tempfile
 import zipfile
 
-from app.config import now_vn
+from app.config import get_settings, now_vn
 
 
 def _safe(s: str | None) -> str:
@@ -109,4 +109,4 @@ def build_all_zip(store, storage, khoa: str = "") -> tuple[str, str]:
         zf.writestr("DANH_SACH.csv", "﻿" + buf.getvalue())  # BOM để Excel đọc đúng tiếng Việt
     tmp.close()
     khoa_tag = f"-{_safe(khoa)}" if khoa else ""
-    return tmp.name, f"DNU-SanPham{khoa_tag}-{now_vn():%Y%m%d}.zip"
+    return tmp.name, f"{get_settings().org_short}-SanPham{khoa_tag}-{now_vn():%Y%m%d}.zip"

@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import io
 
+from app.config import get_settings
+
 LEVELS = [
     ("xuat_sac", "Xuất sắc (90–100%)"),
     ("dat", "Đạt yêu cầu (70–89%)"),
@@ -42,19 +44,20 @@ def rubric_to_xlsx(rubric: dict) -> bytes:
     center = Alignment(horizontal="center", vertical="center")
     thin = Border(*[Side(style="thin", color="D1D5DB")] * 4)
 
+    s = get_settings()
     wb = openpyxl.Workbook()
 
     # ---------- Sheet 1: Hướng dẫn ----------
     ws = wb.active
     ws.title = "Huong_dan"
     lines = [
-        ("RUBRIC CHẤM ĐIỂM – ĐÁNH GIÁ NĂNG LỰC ỨNG DỤNG AI CỦA GIẢNG VIÊN DNU 2026", 14, True),
+        (f"RUBRIC CHẤM ĐIỂM – ĐÁNH GIÁ NĂNG LỰC ỨNG DỤNG AI CỦA GIẢNG VIÊN {s.org_short} {s.program_year}", 14, True),
         (f"Phiên bản rubric: {rubric.get('version', '')} · Dùng cho Hội đồng đánh giá cấp Trường (chấm vòng 2)", 11, False),
         ("", 11, False),
         ("1. Thang điểm: tổng 100 điểm theo trọng số các Phần B–G. Phần A là điều kiện hợp lệ (Đạt/Không đạt), không tính điểm.", 11, False),
         ("2. Mỗi tiêu chí chấm theo 4 mức: Xuất sắc (90–100% điểm), Đạt yêu cầu (70–89%), Cơ bản (50–69%), Chưa đạt (<50%).", 11, False),
         ("   Hội đồng xác định mức phù hợp nhất với bài làm rồi cho điểm trong khoảng của mức đó (xem sheet 'Rubric_chi_tiet').", 11, False),
-        ("3. Phần mềm DNU AI-Assess đã chấm vòng 1: mỗi tiêu chí 2 lượt độc lập, chênh >15% chấm lượt 3 lấy trung vị.", 11, False),
+        (f"3. Phần mềm {s.app_title} đã chấm vòng 1: mỗi tiêu chí 2 lượt độc lập, chênh >15% chấm lượt 3 lấy trung vị.", 11, False),
         ("   Cột 'Điểm AI đề xuất' ở sheet 'Bang_diem' là kết quả vòng 1 để Hội đồng tham khảo.", 11, False),
         ("4. Quy tắc minh chứng: sản phẩm thiếu minh chứng AI bị trừ tối đa 50% điểm của tiêu chí liên quan.", 11, False),
         ("5. Phần E có điểm thưởng E_BONUS (tối đa +2) cho nhiệm vụ khuyến khích, nhưng tổng Phần E không vượt 20 điểm.", 11, False),
@@ -93,7 +96,7 @@ def rubric_to_xlsx(rubric: dict) -> bytes:
 
     # ---------- Sheet 3: Bảng nhập điểm (tự tính tổng + xếp loại) ----------
     ws3 = wb.create_sheet("Bang_diem")
-    info = [("BẢNG NHẬP ĐIỂM HỘI ĐỒNG – DNU AI-ASSESS 2026", ""),
+    info = [(f"BẢNG NHẬP ĐIỂM HỘI ĐỒNG – {s.app_title.upper()} {s.program_year}", ""),
             ("Họ tên GV:", ""), ("Mã GV:", ""), ("Đơn vị/Bộ môn:", ""),
             ("Học phần:", ""), ("Thành viên Hội đồng chấm:", "")]
     for label, val in info:
@@ -178,9 +181,11 @@ def rubric_to_docx(rubric: dict) -> bytes:
     from docx.enum.text import WD_ALIGN_PARAGRAPH
     from docx.shared import Pt, RGBColor
 
+    s = get_settings()
     doc = docx.Document()
     doc.add_heading("RUBRIC CHẤM ĐIỂM – ĐÁNH GIÁ NĂNG LỰC ỨNG DỤNG AI", level=0)
-    p = doc.add_paragraph("Trường Đại học Đại Nam (DNU) — Năm 2026 · Dùng cho Hội đồng đánh giá cấp Trường (chấm vòng 2)")
+    p = doc.add_paragraph(f"{s.org_name} ({s.org_short}) — Năm {s.program_year} · "
+                          "Dùng cho Hội đồng đánh giá cấp Trường (chấm vòng 2)")
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
     doc.add_paragraph(f"Phiên bản rubric: {rubric.get('version', '')} · Thang điểm 100").alignment = WD_ALIGN_PARAGRAPH.CENTER
 

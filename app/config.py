@@ -28,6 +28,13 @@ class Settings:
     def __init__(self) -> None:
         self.app_mode = os.environ.get("APP_MODE", "local")
         self.base_dir = Path(__file__).resolve().parent.parent
+
+        # Định danh tổ chức (cho phép bàn giao nhiều trường — mặc định DNU)
+        self.org_name = os.environ.get("ORG_NAME", "Trường Đại học Đại Nam")
+        self.org_short = os.environ.get("ORG_SHORT", "DNU")
+        self.program_year = os.environ.get("PROGRAM_YEAR", "2026")
+        self.app_title = os.environ.get("APP_TITLE", "") or f"{self.org_short} AI-Assess"
+
         self.data_dir = Path(os.environ.get("DATA_DIR", self.base_dir / "data"))
         self.secret_key = os.environ.get("SECRET_KEY", "dev-secret-change-me")
         self.cron_token = os.environ.get("CRON_TOKEN", "dev-cron-token")

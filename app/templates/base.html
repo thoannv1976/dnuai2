@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}DNU AI-Assess{% endblock %}</title>
+  <title>{% block title %}{{ APP_TITLE }}{% endblock %}</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3/dist/cdn.min.js"></script>
   <style>
@@ -14,8 +14,8 @@
 <body class="bg-slate-100 min-h-screen text-slate-800">
 <nav class="bg-orange-700 text-white shadow no-print">
   <div class="max-w-6xl mx-auto px-4 py-3 flex flex-wrap items-center gap-4">
-    <a href="/" class="font-bold text-lg tracking-wide">🎓 DNU AI-Assess</a>
-    <span class="text-orange-100 text-sm hidden sm:inline">Đánh giá năng lực ứng dụng AI của giảng viên — 2026</span>
+    <a href="/" class="font-bold text-lg tracking-wide">🎓 {{ APP_TITLE }}</a>
+    <span class="text-orange-100 text-sm hidden sm:inline">Đánh giá năng lực ứng dụng AI của giảng viên — {{ PROGRAM_YEAR }}</span>
     <div class="ml-auto flex items-center gap-3 text-sm">
       {% if user %}
         {% if user.role == 'lecturer' %}
@@ -53,7 +53,7 @@
   {% block content %}{% endblock %}
 </main>
 <footer class="text-center text-xs text-slate-400 pb-6 no-print">
-  Trường Đại học Đại Nam — Chương trình đánh giá năng lực ứng dụng AI của giảng viên năm 2026
+  {{ ORG_NAME }} — Chương trình đánh giá năng lực ứng dụng AI của giảng viên năm {{ PROGRAM_YEAR }}
 </footer>
 </body>
 </html>

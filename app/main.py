@@ -22,12 +22,15 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname
 
 def create_app() -> FastAPI:
     settings = get_settings()
-    app = FastAPI(title="DNU AI-Assess", docs_url=None, redoc_url=None)
+    app = FastAPI(title=settings.app_title, docs_url=None, redoc_url=None)
 
     app.state.store = create_store(settings)
     app.state.storage = create_storage(settings)
     templates = Jinja2Templates(directory=str(settings.base_dir / "app" / "templates"))
-    templates.env.globals.update(app_mode=settings.app_mode)
+    templates.env.globals.update(
+        app_mode=settings.app_mode, APP_TITLE=settings.app_title,
+        ORG_NAME=settings.org_name, ORG_SHORT=settings.org_short, PROGRAM_YEAR=settings.program_year,
+    )
     app.state.templates = templates
 
     app.mount("/static", StaticFiles(directory=str(settings.base_dir / "app" / "static")), name="static")

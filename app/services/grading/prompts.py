@@ -1,6 +1,8 @@
 """Xây dựng prompt chấm điểm cho Claude theo rubric từng Phần B–G."""
 from __future__ import annotations
 
+from app.config import get_settings
+
 _LEVELS = [
     ("xuat_sac", "Xuất sắc", 0.90, 1.00),
     ("dat", "Đạt yêu cầu", 0.70, 0.89),
@@ -39,8 +41,9 @@ def system_prompt(part: str, part_def: dict) -> str:
             f"{_levels_block(c)}"
         )
     criteria_text = "\n".join(crit_lines)
+    s = get_settings()
     return f"""Bạn là giám khảo của Hội đồng đánh giá năng lực ứng dụng AI dành cho giảng viên \
-Trường Đại học Đại Nam (DNU) năm 2026. Nhiệm vụ: chấm Phần {part} — {part_def['name']} \
+{s.org_name} ({s.org_short}) năm {s.program_year}. Nhiệm vụ: chấm Phần {part} — {part_def['name']} \
 (tối đa {part_def['max_score']} điểm) của một hồ sơ giảng viên, theo đúng rubric dưới đây.
 
 YÊU CẦU CỦA PHẦN {part}:

@@ -193,7 +193,8 @@ def rubric_xlsx(request: Request, user: dict = admin_dep):
     data = rubric_to_xlsx(get_rubric(request.app.state.store))
     return Response(
         data, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f"attachment; filename=DNU-Rubric-HoiDong-{now_vn():%Y%m%d}.xlsx"},
+        headers={"Content-Disposition":
+                 f"attachment; filename={get_settings().org_short}-Rubric-HoiDong-{now_vn():%Y%m%d}.xlsx"},
     )
 
 
@@ -206,7 +207,8 @@ def rubric_docx(request: Request, user: dict = admin_dep):
     data = rubric_to_docx(get_rubric(request.app.state.store))
     return Response(
         data, media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        headers={"Content-Disposition": f"attachment; filename=DNU-Rubric-HoiDong-{now_vn():%Y%m%d}.docx"},
+        headers={"Content-Disposition":
+                 f"attachment; filename={get_settings().org_short}-Rubric-HoiDong-{now_vn():%Y%m%d}.docx"},
     )
 
 

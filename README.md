@@ -23,15 +23,19 @@ Hệ thống tiếp nhận hồ sơ và **chấm điểm tự động bằng AI*
 
 ## Cài đặt & bàn giao
 
-Cài lên Google Cloud của Trường bằng **một lệnh** (trong Google Cloud Shell):
+Cài MỚI lên Google Cloud của một Trường bằng **một lệnh** (trong Google Cloud Shell):
 
 ```bash
 export ANTHROPIC_API_KEY="sk-ant-..."
-PROJECT_ID="<project>" ADMIN_EMAIL="admin@dainam.edu.vn" bash deploy/deploy.sh
+PROJECT_ID="<project>" ORG_NAME="Trường Đại học X" ORG_SHORT="UX" \
+ADMIN_EMAIL="admin@x.edu.vn" bash deploy/deploy.sh
 ```
 
-- 📦 Đóng gói bộ cài bàn giao: `bash scripts/build_bundle.sh` → `dist/DNU-AI-Assess-banbangiao.zip`
-- 🚀 **[Hướng dẫn cài đặt GCP](docs/HUONG_DAN_CAI_DAT.md)** · 📋 **[Danh mục bàn giao](docs/DANH_MUC_BAN_GIAO.md)**
+Cập nhật bản đã cài (giữ nguyên dữ liệu): `PROJECT_ID="<project>" SERVICE="ai-assess" bash deploy/update.sh`
+
+- 📦 Đóng gói bộ cài bàn giao: `bash scripts/build_bundle.sh` → `dist/AI-Assess-<phiên-bản>.zip`
+- 🚀 **[Hướng dẫn cài đặt & cập nhật GCP](docs/HUONG_DAN_CAI_DAT.md)** · 📋 **[Danh mục bàn giao](docs/DANH_MUC_BAN_GIAO.md)**
+- 🏫 Bàn giao **nhiều trường**: mỗi trường một dự án GCP riêng, đặt `ORG_NAME`/`ORG_SHORT` để hiển thị đúng thương hiệu.
 
 ## Chạy nhanh (demo cục bộ, không cần GCP)
 
