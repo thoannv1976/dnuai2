@@ -10,7 +10,7 @@
 
 <div class="flex flex-wrap items-center gap-3 mb-3">
   <h1 class="text-xl font-bold">Tải sản phẩm giảng viên</h1>
-  <span class="text-sm text-slate-500">{{ rows | length }} hồ sơ</span>
+  <span class="text-sm text-slate-500">{{ total }} hồ sơ</span>
   <form method="get" class="ml-auto flex gap-2 text-sm">
     <input type="hidden" name="sort" value="{{ sort }}">
     <select name="khoa" class="border rounded-lg px-2 py-1.5">
@@ -75,6 +75,25 @@
     </table>
   </div>
 </form>
+
+{% if pages > 1 %}
+{% set pbase = '/admin/downloads?' ~ qk ~ 'sort=' ~ sort ~ '&' %}
+<nav class="flex flex-wrap items-center justify-center gap-1 mt-4 text-sm">
+  <a class="px-3 py-1.5 rounded border {{ 'pointer-events-none opacity-40' if page <= 1 else 'hover:bg-slate-50' }}"
+     href="{{ pbase }}page={{ page - 1 }}">‹ Trước</a>
+  {% for p in range(1, pages + 1) %}
+    {% if p == 1 or p == pages or (p >= page - 2 and p <= page + 2) %}
+      <a class="px-3 py-1.5 rounded border {{ 'bg-orange-600 text-white border-orange-600' if p == page else 'hover:bg-slate-50' }}"
+         href="{{ pbase }}page={{ p }}">{{ p }}</a>
+    {% elif p == page - 3 or p == page + 3 %}<span class="px-1 text-slate-400">…</span>{% endif %}
+  {% endfor %}
+  <a class="px-3 py-1.5 rounded border {{ 'pointer-events-none opacity-40' if page >= pages else 'hover:bg-slate-50' }}"
+     href="{{ pbase }}page={{ page + 1 }}">Sau ›</a>
+</nav>
+{% endif %}
+<p class="text-center text-xs text-slate-400 mt-2">
+  Trang {{ page }}/{{ pages }} · hiển thị {{ rows | length }} / {{ total }} hồ sơ · {{ per_page }} dòng/trang
+</p>
 
 <script>
   const _cbs = () => Array.from(document.querySelectorAll('.rowcb'));

@@ -342,7 +342,8 @@ def emails_page(request: Request, user: dict = admin_dep):
 # ---------- tải sản phẩm (ZIP) ----------
 
 @router.get("/downloads")
-def downloads_page(request: Request, khoa: str = "", sort: str = "ma_gv", user: dict = admin_dep):
+def downloads_page(request: Request, khoa: str = "", sort: str = "ma_gv", page: int = 1,
+                   user: dict = admin_dep):
     store = request.app.state.store
     users = {u["id"]: u for u in store.all("users")}
     rows = []
@@ -370,8 +371,14 @@ def downloads_page(request: Request, khoa: str = "", sort: str = "ma_gv", user: 
     }
     key, reverse = sorters.get(sort, sorters["ma_gv"])
     rows.sort(key=key, reverse=reverse)
+    total = len(rows)
+    per_page = 50
+    pages = max(1, (total + per_page - 1) // per_page)
+    page = max(1, min(page, pages))
+    start = (page - 1) * per_page
     khoas = sorted({u.get("khoa", "") for u in users.values() if u.get("khoa")})
-    return render(request, "admin/downloads.html", user, rows=rows, khoas=khoas, khoa=khoa, sort=sort)
+    return render(request, "admin/downloads.html", user, rows=rows[start:start + per_page], khoas=khoas,
+                  khoa=khoa, sort=sort, total=total, page=page, pages=pages, per_page=per_page)
 
 
 def _zip_response(gen, fname: str):

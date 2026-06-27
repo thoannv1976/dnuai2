@@ -23,7 +23,8 @@ def render(request: Request, template: str, user: dict, **ctx):
 
 
 @router.get("")
-def list_submissions(request: Request, khoa: str = "", status: str = "", user: dict = council_dep):
+def list_submissions(request: Request, khoa: str = "", status: str = "", page: int = 1,
+                     user: dict = council_dep):
     store = request.app.state.store
     subs = store.all("submissions")
     users = {u["id"]: u for u in store.all("users")}
@@ -42,9 +43,14 @@ def list_submissions(request: Request, khoa: str = "", status: str = "", user: d
         not (r["review"] or {}).get("mandatory", False),
         -(r["sub"].get("ai_total") or 0),
     ))
+    total = len(rows)
+    per_page = 50
+    pages = max(1, (total + per_page - 1) // per_page)
+    page = max(1, min(page, pages))
+    start = (page - 1) * per_page
     khoas = sorted({u.get("khoa", "") for u in users.values() if u.get("khoa")})
-    return render(request, "council/list.html", user, rows=rows, khoas=khoas,
-                  khoa=khoa, status=status)
+    return render(request, "council/list.html", user, rows=rows[start:start + per_page], khoas=khoas,
+                  khoa=khoa, status=status, total=total, page=page, pages=pages, per_page=per_page)
 
 
 @router.get("/submission/{sid}")
