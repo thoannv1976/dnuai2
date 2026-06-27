@@ -111,21 +111,24 @@ def grade_one(sid: str, request: Request, user: dict = council_dep):
 
 @router.get("/submission/{sid}/download.zip")
 def download_submission(sid: str, request: Request, user: dict = council_dep):
-    """Tải toàn bộ sản phẩm + minh chứng của một giảng viên (ZIP)."""
-    import os
+    """Tải toàn bộ sản phẩm + minh chứng của một giảng viên (ZIP, theo luồng)."""
+    from urllib.parse import quote
 
-    from fastapi.responses import FileResponse
-    from starlette.background import BackgroundTask
+    from fastapi.responses import StreamingResponse
 
-    from app.services.downloads import build_submission_zip
+    from app.services.downloads import folder_name, stream_zip
 
-    result = build_submission_zip(request.app.state.store, request.app.state.storage, sid)
-    if not result:
+    store, storage = request.app.state.store, request.app.state.storage
+    sub = store.get("submissions", sid)
+    if not sub:
         raise HTTPException(404)
-    path, fname = result
-    audit.log(request.app.state.store, user, "download_submission", f"submissions/{sid}")
-    return FileResponse(path, filename=fname, media_type="application/zip",
-                        background=BackgroundTask(os.remove, path))
+    owner = store.get("users", sub["user_id"]) or {}
+    audit.log(store, user, "download_submission", f"submissions/{sid}")
+    fname = f"{folder_name(owner)}.zip"
+    return StreamingResponse(stream_zip(store, storage, [sub]), media_type="application/zip", headers={
+        "Content-Disposition": f"attachment; filename*=UTF-8''{quote(fname)}",
+        "X-Accel-Buffering": "no",
+    })
 
 
 @router.post("/submission/{sid}/score")

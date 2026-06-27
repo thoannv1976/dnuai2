@@ -74,6 +74,36 @@ def test_admin_download_all_filter_khoa(client, store):
     assert zf.namelist() == ["DANH_SACH.csv"]
 
 
+def test_admin_download_selected(client, store):
+    _submit_with_files(client, store, "gv001@dainam.edu.vn", "GV001")
+    _submit_with_files(client, store, "gv002@dainam.edu.vn", "GV002")
+    sub1 = store.find_one("submissions", user_id="u-gv1")
+    login(client, "admin@dainam.edu.vn")
+    r = client.post("/admin/download/selected.zip", data={"sid": [sub1["id"]]})
+    assert r.status_code == 200
+    assert r.headers["content-type"] == "application/zip"
+    zf = zipfile.ZipFile(io.BytesIO(r.content))
+    names = zf.namelist()
+    assert any("GV001_" in n for n in names)
+    assert not any("GV002_" in n for n in names)   # chỉ đóng gói hồ sơ được chọn
+    assert "DANH_SACH.csv" in names
+    # nội dung tệp đọc được (không rỗng)
+    docx_name = next(n for n in names if n.endswith(".docx"))
+    assert len(zf.read(docx_name)) > 0
+
+
+def test_download_selected_empty_rejected(client, store):
+    login(client, "admin@dainam.edu.vn")
+    assert client.post("/admin/download/selected.zip", data={}, follow_redirects=False).status_code == 400
+
+
+def test_downloads_page_sorting(client, store):
+    _submit_with_files(client, store, "gv001@dainam.edu.vn", "GV001")
+    login(client, "admin@dainam.edu.vn")
+    for s in ("ma_gv", "ho_ten", "don_vi", "upload", "files"):
+        assert client.get("/admin/downloads", params={"sort": s}).status_code == 200
+
+
 def test_downloads_page_and_permissions(client, store):
     _submit_with_files(client, store, "gv001@dainam.edu.vn", "GV001")
     login(client, "admin@dainam.edu.vn")

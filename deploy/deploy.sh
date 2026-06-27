@@ -140,7 +140,7 @@ gcloud run deploy "$SERVICE" \
   --source . \
   --region "$REGION" \
   --allow-unauthenticated \
-  --min-instances 1 --max-instances 10 --memory 1Gi --cpu 1 --timeout 600 \
+  --min-instances 1 --max-instances 10 --memory 1Gi --cpu 1 --timeout 3600 \
   --set-env-vars "$ENVV" \
   --set-secrets "$SECRETS" \
   --quiet

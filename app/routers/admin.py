@@ -342,7 +342,7 @@ def emails_page(request: Request, user: dict = admin_dep):
 # ---------- tải sản phẩm (ZIP) ----------
 
 @router.get("/downloads")
-def downloads_page(request: Request, khoa: str = "", user: dict = admin_dep):
+def downloads_page(request: Request, khoa: str = "", sort: str = "ma_gv", user: dict = admin_dep):
     store = request.app.state.store
     users = {u["id"]: u for u in store.all("users")}
     rows = []
@@ -352,27 +352,63 @@ def downloads_page(request: Request, khoa: str = "", user: dict = admin_dep):
             continue
         if khoa and (u.get("khoa") or "") != khoa:
             continue
-        n_files = sum(1 for i in store.find("submission_items", submission_id=s["id"]) if i.get("type") == "file")
-        n_links = sum(1 for i in store.find("submission_items", submission_id=s["id"]) if i.get("type") == "link")
-        rows.append({"sub": s, "user": u, "n_files": n_files, "n_links": n_links})
-    rows.sort(key=lambda r: (r["user"].get("khoa", ""), r["user"].get("ma_gv", "")))
+        items = store.find("submission_items", submission_id=s["id"])
+        ups = [i.get("uploaded_at") for i in items if i.get("uploaded_at")]
+        last_upload = max(ups) if ups else (s.get("submitted_at") or "")
+        rows.append({
+            "sub": s, "user": u,
+            "n_files": sum(1 for i in items if i.get("type") == "file"),
+            "n_links": sum(1 for i in items if i.get("type") == "link"),
+            "last_upload": last_upload,
+        })
+    sorters = {
+        "ma_gv": (lambda r: r["user"].get("ma_gv", ""), False),
+        "don_vi": (lambda r: (r["user"].get("khoa", ""), r["user"].get("ma_gv", "")), False),
+        "ho_ten": (lambda r: r["user"].get("ho_ten", ""), False),
+        "upload": (lambda r: r["last_upload"] or "", True),   # mới nhất trước
+        "files": (lambda r: r["n_files"], True),
+    }
+    key, reverse = sorters.get(sort, sorters["ma_gv"])
+    rows.sort(key=key, reverse=reverse)
     khoas = sorted({u.get("khoa", "") for u in users.values() if u.get("khoa")})
-    return render(request, "admin/downloads.html", user, rows=rows, khoas=khoas, khoa=khoa)
+    return render(request, "admin/downloads.html", user, rows=rows, khoas=khoas, khoa=khoa, sort=sort)
+
+
+def _zip_response(gen, fname: str):
+    from urllib.parse import quote
+
+    from fastapi.responses import StreamingResponse
+
+    return StreamingResponse(gen, media_type="application/zip", headers={
+        "Content-Disposition": f"attachment; filename*=UTF-8''{quote(fname)}",
+        "X-Accel-Buffering": "no",  # không đệm, đẩy luồng ngay
+    })
 
 
 @router.get("/download/all.zip")
 def download_all(request: Request, khoa: str = "", user: dict = admin_dep):
-    import os
+    from app.services.downloads import stream_zip, zip_filename
 
-    from fastapi.responses import FileResponse
-    from starlette.background import BackgroundTask
+    store, storage = request.app.state.store, request.app.state.storage
+    subs = [s for s in store.all("submissions")
+            if s.get("status") != "draft" and store.get("users", s["user_id"])
+            and (not khoa or (store.get("users", s["user_id"]).get("khoa") or "") == khoa)]
+    audit.log(store, user, "download_all", "submissions", note=f"khoa={khoa or 'tất cả'} ({len(subs)} hồ sơ)")
+    tag = f"-{khoa}" if khoa else ""
+    return _zip_response(stream_zip(store, storage, subs, manifest=True, base_by_khoa=True), zip_filename(tag))
 
-    from app.services.downloads import build_all_zip
 
-    path, fname = build_all_zip(request.app.state.store, request.app.state.storage, khoa=khoa)
-    audit.log(request.app.state.store, user, "download_all", "submissions", note=f"khoa={khoa or 'tất cả'}")
-    return FileResponse(path, filename=fname, media_type="application/zip",
-                        background=BackgroundTask(os.remove, path))
+@router.post("/download/selected.zip")
+def download_selected(request: Request, sid: list[str] = Form(default=[]), user: dict = admin_dep):
+    from app.services.downloads import stream_zip, zip_filename
+
+    store, storage = request.app.state.store, request.app.state.storage
+    subs = [s for s in (store.get("submissions", i) for i in sid) if s and s.get("status") != "draft"]
+    if not subs:
+        raise HTTPException(400, "Chưa chọn hồ sơ nào để tải")
+    audit.log(store, user, "download_selected", "submissions", note=f"{len(subs)} hồ sơ")
+    return _zip_response(stream_zip(store, storage, subs, manifest=True, base_by_khoa=True),
+                         zip_filename(f"-chon-{len(subs)}gv"))
 
 
 # ---------- sao lưu ----------
