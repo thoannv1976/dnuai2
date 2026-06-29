@@ -36,6 +36,36 @@ def _level(score: float | None, mx: float) -> str:
     return "Chưa đạt"
 
 
+def stream_reports_zip(store, subs: list[dict], fmt: str = "pdf"):
+    """Đóng gói phiếu đánh giá của nhiều giảng viên thành ZIP (theo luồng).
+
+    Bỏ qua hồ sơ chưa chấm. fmt = 'pdf' hoặc 'docx'.
+    """
+    import zipfile
+
+    from app.services.downloads import _ChunkBuffer, _unique
+
+    ext = "docx" if fmt == "docx" else "pdf"
+    render = report_to_docx if fmt == "docx" else report_to_pdf
+    buf = _ChunkBuffer()
+    seen: set[str] = set()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_STORED, allowZip64=True) as zf:
+        for s in subs:
+            ctx = build_report_context(store, s["id"])
+            if not ctx:
+                continue
+            try:
+                data = render(ctx)
+            except Exception as exc:  # noqa: BLE001 — một phiếu lỗi không làm hỏng cả gói
+                zf.writestr(f"{ctx['filename_base']}.LOI.txt", f"Không tạo được phiếu: {exc}")
+            else:
+                zf.writestr(_unique(seen, f"{ctx['filename_base']}.{ext}"), data)
+            if (out := buf.take()):
+                yield out
+    if (out := buf.take()):
+        yield out
+
+
 def build_report_context(store, sid: str) -> dict | None:
     """Thu thập dữ liệu phiếu đánh giá từ điểm AI/Hội đồng. None nếu hồ sơ chưa chấm."""
     sub = store.get("submissions", sid)

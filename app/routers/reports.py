@@ -173,6 +173,29 @@ def scores_xlsx(request: Request, khoa: str = "", user: dict = staff_dep):
     )
 
 
+@router.get("/phieu-danh-gia.zip")
+def reports_zip(request: Request, khoa: str = "", fmt: str = "pdf", user: dict = staff_dep):
+    """Tải hàng loạt phiếu đánh giá (ZIP) cho tất cả GV đã chấm (lọc theo đơn vị)."""
+    from urllib.parse import quote
+
+    from fastapi.responses import StreamingResponse
+
+    from app.services.report import stream_reports_zip
+
+    store = request.app.state.store
+    users = {u["id"]: u for u in store.all("users")}
+    subs = [s for s in store.all("submissions")
+            if s.get("status") != "draft" and users.get(s["user_id"])
+            and (not khoa or (users[s["user_id"]].get("khoa") or "") == khoa)]
+    fmt = "docx" if fmt == "docx" else "pdf"
+    tag = f"-{khoa}" if khoa else ""
+    fname = f"{get_settings().org_short}-PhieuDanhGia{tag}-{now_vn():%Y%m%d}.zip"
+    return StreamingResponse(stream_reports_zip(store, subs, fmt), media_type="application/zip", headers={
+        "Content-Disposition": f"attachment; filename*=UTF-8''{quote(fname)}",
+        "X-Accel-Buffering": "no",
+    })
+
+
 @router.get("/api/summary")
 def api_summary(request: Request, user: dict = staff_dep):
     return build_summary(request.app.state.store)

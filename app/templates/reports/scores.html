@@ -14,6 +14,12 @@
   </form>
   <a href="/reports/scores.xlsx{{ '?khoa=' ~ khoa if khoa }}"
      class="bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg px-4 py-2 text-sm font-semibold">⬇ Tải Excel</a>
+  <a href="/reports/phieu-danh-gia.zip?fmt=pdf{{ '&khoa=' ~ (khoa | urlencode) if khoa }}"
+     class="bg-red-600 hover:bg-red-700 text-white rounded-lg px-4 py-2 text-sm font-semibold"
+     onclick="this.classList.add('opacity-60');this.textContent='⏳ Đang đóng gói...';">⬇ Tất cả phiếu (PDF)</a>
+  <a href="/reports/phieu-danh-gia.zip?fmt=docx{{ '&khoa=' ~ (khoa | urlencode) if khoa }}"
+     class="bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-4 py-2 text-sm font-semibold"
+     onclick="this.classList.add('opacity-60');this.textContent='⏳ Đang đóng gói...';">⬇ Tất cả phiếu (Word)</a>
 </div>
 
 <p class="text-sm text-slate-500 mb-3">
@@ -45,8 +51,9 @@
           {% elif r.has %}<span class="text-amber-600">Tạm tính{{ ' (đã chỉnh)' if r.adjusted }}</span>
           {% else %}<span class="text-slate-400">Chưa chấm</span>{% endif %}
         </td>
-        <td class="px-3 py-2 text-right">
-          <a href="/council/submission/{{ r.sub.id }}" class="text-orange-700 hover:underline">Mở →</a>
+        <td class="px-3 py-2 text-right whitespace-nowrap">
+          {% if r.has %}<a href="/council/submission/{{ r.sub.id }}/report.pdf" class="text-red-600 hover:underline" title="Tải phiếu đánh giá (PDF)">📄 Phiếu</a>{% endif %}
+          <a href="/council/submission/{{ r.sub.id }}" class="text-orange-700 hover:underline ml-2">Mở →</a>
         </td>
       </tr>
       {% else %}
