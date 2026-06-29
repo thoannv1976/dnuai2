@@ -37,6 +37,17 @@
   {% if request.query_params.get('grading') %}<p class="w-full text-emerald-700">Đã bắt đầu chấm — trang sẽ tự cập nhật.</p>{% endif %}
 </div>
 
+{% if scores %}
+<div class="bg-white rounded-xl shadow p-4 mb-4 flex flex-wrap items-center gap-3 text-sm">
+  <span class="font-semibold">📄 Phiếu đánh giá</span>
+  <span class="text-slate-500">Tổng hợp kết quả chấm (thông tin GV, điểm từng tiêu chí, nhận xét, xếp loại) để lưu trữ/in.</span>
+  <a href="/council/submission/{{ sub.id }}/report.docx"
+     class="ml-auto bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-4 py-2 font-semibold">⬇ Tải Word (.docx)</a>
+  <a href="/council/submission/{{ sub.id }}/report.pdf"
+     class="bg-red-600 hover:bg-red-700 text-white rounded-lg px-4 py-2 font-semibold">⬇ Tải PDF</a>
+</div>
+{% endif %}
+
 {% if sub.get('anomaly_flags') %}
 <div class="bg-red-50 border border-red-200 text-red-700 rounded-lg p-3 mb-4 text-sm">
   <b>Dấu hiệu bất thường do AI phát hiện:</b>

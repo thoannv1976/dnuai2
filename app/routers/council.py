@@ -137,6 +137,44 @@ def download_submission(sid: str, request: Request, user: dict = council_dep):
     })
 
 
+def _report_ctx_or_404(request: Request, sid: str):
+    from app.services.report import build_report_context
+
+    ctx = build_report_context(request.app.state.store, sid)
+    if not ctx:
+        raise HTTPException(400, "Hồ sơ chưa được chấm — chưa thể xuất phiếu đánh giá.")
+    return ctx
+
+
+@router.get("/submission/{sid}/report.docx")
+def report_docx(sid: str, request: Request, user: dict = council_dep):
+    from urllib.parse import quote
+
+    from fastapi.responses import Response
+
+    from app.services.report import report_to_docx
+
+    ctx = _report_ctx_or_404(request, sid)
+    audit.log(request.app.state.store, user, "report_docx", f"submissions/{sid}")
+    return Response(report_to_docx(ctx),
+                    media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(ctx['filename_base'])}.docx"})
+
+
+@router.get("/submission/{sid}/report.pdf")
+def report_pdf(sid: str, request: Request, user: dict = council_dep):
+    from urllib.parse import quote
+
+    from fastapi.responses import Response
+
+    from app.services.report import report_to_pdf
+
+    ctx = _report_ctx_or_404(request, sid)
+    audit.log(request.app.state.store, user, "report_pdf", f"submissions/{sid}")
+    return Response(report_to_pdf(ctx), media_type="application/pdf",
+                    headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(ctx['filename_base'])}.pdf"})
+
+
 @router.post("/submission/{sid}/score")
 def adjust_score(sid: str, request: Request, score_id: str = Form(...),
                  council_score: float = Form(...), reason: str = Form(...), user: dict = council_dep):
