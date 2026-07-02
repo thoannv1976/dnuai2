@@ -12,7 +12,10 @@ os.environ.update({
     "GRADER": "mock",
     "SECRET_KEY": "test-secret",
     "CRON_TOKEN": "test-cron",
-    "DEADLINE": "2026-06-30T17:00:00+07:00",
+    # Hạn nộp đặt xa trong tương lai để test không phụ thuộc đồng hồ hệ thống
+    # (test nào cần "quá hạn" tự đặt lại deadline trong DB).
+    "DEADLINE": "2099-12-31T17:00:00+07:00",
+    "OPEN_AT": "2020-01-01T00:00:00+07:00",
 })
 
 import pytest  # noqa: E402

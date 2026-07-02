@@ -37,7 +37,8 @@
   <p class="mt-3 text-slate-500">Hạn nộp: <b>{{ timeline.deadline }}</b>
     · Nhắc 24h: {{ '✅ đã gửi' if timeline.reminder_sent else 'chưa' }}
     · Khóa hồ sơ: {{ '✅ đã khóa' if timeline.locked_done else 'chưa' }}
-    — <a href="/admin/config" class="text-orange-700 hover:underline">cấu hình</a></p>
+    — <a href="/admin/config" class="text-orange-700 hover:underline">cấu hình</a>
+    · <a href="/admin/tracking" class="text-orange-700 hover:underline">chi tiết ai đã nộp / còn thiếu →</a></p>
 </div>
 
 <div class="grid md:grid-cols-2 gap-5">
@@ -71,6 +72,7 @@
   <div class="bg-white rounded-xl shadow p-5">
     <h2 class="font-semibold">Công cụ</h2>
     <div class="mt-3 space-y-2 text-sm">
+      <a href="/admin/tracking" class="block border rounded-lg px-4 py-2 hover:bg-orange-50">📋 Tình trạng nộp bài (đã nộp / nháp / chưa nộp)</a>
       <form method="post" action="/admin/remind" onsubmit="return confirm('Gửi email nhắc các hồ sơ còn thiếu?')">
         <button class="w-full text-left border rounded-lg px-4 py-2 hover:bg-orange-50">📧 Gửi email nhắc hạn (mục còn thiếu)</button>
       </form>

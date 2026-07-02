@@ -46,6 +46,70 @@ def index(request: Request, user: dict = admin_dep):
                   settings=settings, ai_cfg=get_ai_config(store))
 
 
+@router.get("/tracking")
+def tracking_page(request: Request, khoa: str = "", state: str = "", page: int = 1, user: dict = admin_dep):
+    from app.services.ops import submission_tracking
+
+    store = request.app.state.store
+    rows, counts = submission_tracking(store)
+    khoas = sorted({r["user"].get("khoa", "") for r in rows if r["user"].get("khoa")})
+    if khoa:
+        rows = [r for r in rows if (r["user"].get("khoa") or "") == khoa]
+    if state in ("submitted", "draft", "none"):
+        rows = [r for r in rows if r["state"] == state]
+    total = len(rows)
+    per_page = 50
+    pages = max(1, (total + per_page - 1) // per_page)
+    page = max(1, min(page, pages))
+    start = (page - 1) * per_page
+    return render(request, "admin/tracking.html", user, rows=rows[start:start + per_page], counts=counts,
+                  khoas=khoas, khoa=khoa, state=state, total=total, page=page, pages=pages, per_page=per_page)
+
+
+@router.get("/tracking.xlsx")
+def tracking_xlsx(request: Request, khoa: str = "", state: str = "", user: dict = admin_dep):
+    import openpyxl
+    from fastapi.responses import Response
+    from openpyxl.styles import Font, PatternFill
+
+    from app.services.ops import submission_tracking
+
+    store = request.app.state.store
+    rows, _ = submission_tracking(store)
+    if khoa:
+        rows = [r for r in rows if (r["user"].get("khoa") or "") == khoa]
+    if state in ("submitted", "draft", "none"):
+        rows = [r for r in rows if r["state"] == state]
+    labels = {"submitted": "Đã nộp", "draft": "Bản nháp", "none": "Chưa tạo hồ sơ"}
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "TinhTrangNop"
+    ws.append(["Mã GV", "Họ tên", "Email", "Đơn vị", "Trạng thái", "Ghi chú / Còn thiếu", "Cập nhật gần nhất"])
+    for c in ws[1]:
+        c.fill = PatternFill("solid", fgColor="EA580C")
+        c.font = Font(bold=True, color="FFFFFF")
+    for r in rows:
+        u = r["user"]
+        if r["state"] == "draft":
+            note = "Đủ bài — CHƯA bấm Nộp" if r["ready"] else ("Thiếu: " + ", ".join(r["missing"]))
+        elif r["state"] == "none":
+            note = "Chưa tạo hồ sơ"
+        else:
+            note = ""
+        ws.append([u.get("ma_gv", ""), u.get("ho_ten", ""), u.get("email", ""), u.get("khoa", ""),
+                   labels[r["state"]], note, (r["last"] or "")[:16].replace("T", " ")])
+    for col, w in zip("ABCDEFG", [12, 24, 28, 24, 14, 50, 18]):
+        ws.column_dimensions[col].width = w
+    buf = io.BytesIO()
+    wb.save(buf)
+    return Response(
+        buf.getvalue(),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition":
+                 f"attachment; filename={get_settings().org_short}-TinhTrangNop-{now_vn():%Y%m%d}.xlsx"},
+    )
+
+
 @router.post("/lock")
 def lock(request: Request, user: dict = admin_dep):
     result = lock_all(request.app.state.store, user)

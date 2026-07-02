@@ -8,7 +8,7 @@ from app.rubric import get_rubric
 from app.services import audit
 from app.services.classify import classify
 from app.services.emailer import email_reminder, email_result
-from app.services.validation import completeness
+from app.services.validation import completeness, part_a_complete
 
 
 # ---------- mốc thời gian ----------
@@ -74,6 +74,63 @@ def send_reminders(store) -> int:
     tl["reminder_sent"] = True
     store.put("config", "timeline", tl)
     return sent
+
+
+# ---------- Theo dõi tình trạng nộp bài ----------
+
+def _missing_parts(sub: dict, items: list[dict]) -> list[str]:
+    """Các phần còn thiếu của một hồ sơ (Phần A + sản phẩm/minh chứng B–G)."""
+    missing = []
+    if not part_a_complete(sub.get("part_a"))[0]:
+        missing.append("Phần A")
+    for p in GRADED_PARTS:
+        prods = [i for i in items if i.get("part") == p and i.get("kind") == "product"]
+        evs = [i for i in items if i.get("part") == p and i.get("kind") == "evidence"]
+        if not prods:
+            missing.append(f"{p} (sản phẩm)")
+        elif p != "G" and not evs:
+            missing.append(f"{p} (minh chứng)")
+    return missing
+
+
+def submission_tracking(store) -> tuple[list[dict], dict]:
+    """Tổng hợp tình trạng nộp bài của từng giảng viên: đã nộp / bản nháp / chưa tạo hồ sơ.
+
+    Với bản nháp: liệt kê phần còn thiếu; nếu không thiếu gì → 'đủ bài nhưng chưa bấm Nộp'.
+    Một truy vấn cho users/submissions/submission_items rồi gộp trong bộ nhớ.
+    """
+    from collections import defaultdict
+
+    lecturers = [u for u in store.all("users") if u.get("role") == ROLE_LECTURER]
+    sub_by_user = {s["user_id"]: s for s in store.all("submissions")}
+    items_by_sub: dict[str, list] = defaultdict(list)
+    for it in store.all("submission_items"):
+        items_by_sub[it.get("submission_id")].append(it)
+
+    rows = []
+    counts = {"lecturers": len(lecturers), "submitted": 0, "draft": 0, "none": 0, "ready_unsubmitted": 0}
+    for u in lecturers:
+        s = sub_by_user.get(u["id"])
+        if not s:
+            rows.append({"user": u, "sub": None, "state": "none",
+                         "missing": ["Chưa tạo hồ sơ"], "ready": False, "last": ""})
+            counts["none"] += 1
+        elif s.get("status") == "draft":
+            items = items_by_sub.get(s["id"], [])
+            missing = _missing_parts(s, items)
+            ready = not missing
+            ups = [i.get("uploaded_at") for i in items if i.get("uploaded_at")]
+            rows.append({"user": u, "sub": s, "state": "draft", "missing": missing, "ready": ready,
+                         "last": max(ups) if ups else (s.get("created_at") or "")})
+            counts["draft"] += 1
+            counts["ready_unsubmitted"] += 1 if ready else 0
+        else:
+            rows.append({"user": u, "sub": s, "state": "submitted", "missing": [], "ready": False,
+                         "last": s.get("submitted_at") or ""})
+            counts["submitted"] += 1
+    order = {"none": 0, "draft": 1, "submitted": 2}
+    rows.sort(key=lambda r: (order[r["state"]], r["user"].get("khoa", ""), r["user"].get("ma_gv", "")))
+    return rows, counts
 
 
 # ---------- Tổng hợp điểm & phê duyệt & công bố ----------
