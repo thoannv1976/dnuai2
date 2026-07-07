@@ -7,7 +7,7 @@
   <span class="text-sm px-2.5 py-1 rounded-full
     {{ 'bg-emerald-100 text-emerald-700' if sub.status in ('submitted','published') else 'bg-slate-200 text-slate-600' }}">
     {{ status_labels.get(sub.status, sub.status) }}</span>
-  <span class="ml-auto text-sm text-slate-500">⏰ Hạn nộp: <b>17h00 ngày 30/6/2026</b>
+  <span class="ml-auto text-sm text-slate-500">⏰ Hạn nộp: <b>{{ deadline_str }}</b>
     {% if deadline_passed %}<span class="text-red-600 font-semibold">— ĐÃ HẾT HẠN</span>{% endif %}
   </span>
 </div>

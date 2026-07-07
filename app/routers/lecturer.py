@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Uplo
 from fastapi.responses import RedirectResponse
 
 from app.config import (
-    GRADED_PARTS, ROLE_ADMIN, ROLE_COUNCIL, ROLE_LECTURER, now_vn,
+    GRADED_PARTS, ROLE_ADMIN, ROLE_COUNCIL, ROLE_LECTURER, now_vn, parse_dt,
 )
 from app.auth import require_role
 from app.db import new_id
@@ -62,8 +62,12 @@ def dashboard(request: Request, user: dict = lecturer_dep):
     summary = completeness(store, sub)
     items = store.find("submission_items", submission_id=sub["id"])
     tl = get_timeline(store)
+    try:
+        deadline_str = f"{parse_dt(tl['deadline']):%Hh%M ngày %d/%m/%Y}"
+    except Exception:  # noqa: BLE001 — hạn nộp định dạng lạ thì hiện nguyên văn
+        deadline_str = tl.get("deadline", "")
     return render(request, "lecturer/dashboard.html", user, sub=sub, rubric=rubric,
-                  summary=summary, items=items, timeline=tl,
+                  summary=summary, items=items, timeline=tl, deadline_str=deadline_str,
                   deadline_passed=deadline_passed(store), parts=GRADED_PARTS)
 
 
