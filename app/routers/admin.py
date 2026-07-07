@@ -9,11 +9,11 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile
 from fastapi.responses import RedirectResponse
 
 from app.auth import require_role, set_password
-from app.config import ROLE_ADMIN, ROLE_COUNCIL, ROLE_LECTURER, get_settings, now_vn
+from app.config import ROLE_ADMIN, ROLE_COUNCIL, ROLE_LECTURER, get_settings, now_vn, parse_dt
 from app.rubric import get_rubric, load_rubric_seed, reload_rubric
 from app.security import hash_password
 from app.services import audit
-from app.services.ops import get_timeline, lock_all, publish_all, send_reminders
+from app.services.ops import get_timeline, lock_all, publish_all, send_reminders, unlock_all
 
 router = APIRouter(prefix="/admin")
 admin_dep = Depends(require_role(ROLE_ADMIN))
@@ -114,6 +114,13 @@ def tracking_xlsx(request: Request, khoa: str = "", state: str = "", user: dict 
 def lock(request: Request, user: dict = admin_dep):
     result = lock_all(request.app.state.store, user)
     return RedirectResponse(f"/admin?locked={result['locked']}&invalid={result['invalid']}", status_code=303)
+
+
+@router.post("/unlock")
+def unlock(request: Request, user: dict = admin_dep):
+    """Mở khóa hồ sơ đã khóa để giảng viên nộp/sửa lại (dùng khi gia hạn nộp bài)."""
+    n = unlock_all(request.app.state.store, user)
+    return RedirectResponse(f"/admin?unlocked={n}", status_code=303)
 
 
 @router.post("/remind")
@@ -311,6 +318,13 @@ def config_timeline(request: Request, deadline: str = Form(...), open_at: str = 
     tl = get_timeline(store)
     before = {"deadline": tl["deadline"], "open_at": tl["open_at"]}
     tl.update({"deadline": deadline.strip(), "open_at": open_at.strip()})
+    # Gia hạn (hạn mới ở tương lai) → cho cron khóa lại đúng hạn mới. Hồ sơ ĐANG khóa
+    # vẫn cần bấm "Mở khóa" riêng để giảng viên nộp lại.
+    try:
+        if parse_dt(tl["deadline"]) > now_vn():
+            tl["locked_done"] = False
+    except Exception:  # noqa: BLE001 — định dạng ngày sai không được chặn lưu
+        pass
     store.put("config", "timeline", tl)
     audit.log(store, user, "update_timeline", "config/timeline", before=before, after=tl)
     return RedirectResponse("/admin/config?saved=1", status_code=303)

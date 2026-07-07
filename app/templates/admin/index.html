@@ -7,6 +7,7 @@
 {% if q.get('locked') %}<div class="bg-emerald-50 border border-emerald-200 rounded-lg p-3 mb-4 text-sm">Đã khóa {{ q.get('locked') }} hồ sơ ({{ q.get('invalid') }} không hợp lệ).</div>{% endif %}
 {% if q.get('published') %}<div class="bg-emerald-50 border border-emerald-200 rounded-lg p-3 mb-4 text-sm">Đã công bố {{ q.get('published') }} hồ sơ và gửi email kết quả.</div>{% endif %}
 {% if q.get('reminded') %}<div class="bg-emerald-50 border border-emerald-200 rounded-lg p-3 mb-4 text-sm">Đã gửi {{ q.get('reminded') }} email nhắc hạn.</div>{% endif %}
+{% if q.get('unlocked') is not none %}<div class="bg-emerald-50 border border-emerald-200 rounded-lg p-3 mb-4 text-sm">Đã mở khóa {{ q.get('unlocked') }} hồ sơ — giảng viên có thể sửa/nộp lại đến hạn mới.</div>{% endif %}
 
 <div class="grid sm:grid-cols-4 gap-4 mb-6">
   <div class="bg-white rounded-xl shadow p-4 text-center">
@@ -50,6 +51,13 @@
         <form method="post" action="/admin/lock" class="inline" onsubmit="return confirm('Khóa toàn bộ hồ sơ ngay bây giờ?')">
           <button class="bg-slate-700 text-white rounded px-3 py-1 text-xs ml-1">Khóa ngay</button>
         </form>
+        <form method="post" action="/admin/unlock" class="inline"
+              onsubmit="return confirm('Mở khóa toàn bộ hồ sơ đang khóa để giảng viên nộp/sửa lại? Dùng khi vừa GIA HẠN nộp bài. (Hồ sơ đã chấm giữ nguyên.)')">
+          <button class="bg-amber-600 text-white rounded px-3 py-1 text-xs ml-1">Mở khóa (khi gia hạn)</button>
+        </form>
+        <div class="mt-1 text-xs text-slate-500">Khi gia hạn nộp bài: đổi hạn ở
+          <a href="/admin/config" class="text-orange-700 hover:underline">Cấu hình</a> rồi bấm
+          <b>Mở khóa</b> — nếu không, các hồ sơ đã khóa vẫn không nộp lại được.</div>
       </li>
       <li>
         <b>Chấm AI lần lượt từng hồ sơ</b> — Admin/Hội đồng vào

@@ -50,6 +50,25 @@ def lock_all(store, actor: dict | None = None) -> dict:
     return counts
 
 
+def unlock_all(store, actor: dict | None = None) -> int:
+    """Mở khóa các hồ sơ đang 'locked' → 'submitted' để giảng viên sửa/nộp lại.
+
+    Dùng khi GIA HẠN nộp bài sau khi hệ thống đã khóa. Chỉ đụng hồ sơ đang khóa;
+    hồ sơ đã chấm/duyệt/công bố giữ nguyên. Đặt lại cờ locked_done để cron khóa lại
+    đúng hạn mới.
+    """
+    count = 0
+    for sub in store.all("submissions"):
+        if sub.get("status") == "locked":
+            store.patch("submissions", sub["id"], {"status": "submitted", "unlocked_at": now_vn().isoformat()})
+            count += 1
+    tl = get_timeline(store)
+    tl["locked_done"] = False
+    store.put("config", "timeline", tl)
+    audit.log(store, actor, "unlock_all", "submissions", note=f"Mở khóa {count} hồ sơ (gia hạn nộp)")
+    return count
+
+
 # ---------- Nhắc hạn 24 giờ ----------
 
 def send_reminders(store) -> int:

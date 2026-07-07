@@ -39,7 +39,8 @@ def get_submission(store, user: dict) -> dict:
 
 def ensure_editable(store, sub: dict) -> None:
     if deadline_passed(store) or sub.get("status") not in ("draft", "submitted"):
-        raise HTTPException(400, "Đã quá hạn nộp (17h00 ngày 30/6/2026) hoặc hồ sơ đã khóa — không thể chỉnh sửa.")
+        raise HTTPException(400, "Đã quá hạn nộp hoặc hồ sơ đã bị khóa — không thể chỉnh sửa. "
+                                 "Nếu Nhà trường vừa gia hạn, hãy đề nghị Quản trị viên mở khóa hồ sơ.")
 
 
 def mark_dirty(store, sub: dict) -> None:
