@@ -69,8 +69,54 @@ def unlock_all(store, actor: dict | None = None) -> int:
     return count
 
 
-# ---------- Nhắc hạn 24 giờ ----------
+# ---------- Chấm bị treo (Cloud Run cắt CPU / thu hồi instance) ----------
 
+GRADING_STALE_MINUTES = 15
+
+
+def grade_job_stale(job: dict | None, minutes: int = GRADING_STALE_MINUTES) -> bool:
+    """Job chấm đang 'running' nhưng bắt đầu quá lâu → coi như đã treo/chết."""
+    if not job or not job.get("running"):
+        return False
+    started = job.get("started_at")
+    if not started:
+        return True
+    try:
+        return now_vn() - parse_dt(started) > timedelta(minutes=minutes)
+    except Exception:  # noqa: BLE001 — định dạng thời gian lạ → coi như treo
+        return True
+
+
+def reset_stuck_grading(store, actor: dict | None = None, minutes: int = GRADING_STALE_MINUTES) -> int:
+    """Đặt lại các hồ sơ kẹt ở 'đang chấm' quá lâu để có thể chấm lại.
+
+    Kẹt = status 'grading' hoặc grade_job.running=True, và bắt đầu đã quá `minutes` phút.
+    Khôi phục status về trạng thái trước khi chấm (prev_status), xóa cờ running.
+    """
+    n = 0
+    for sub in store.all("submissions"):
+        job = sub.get("grade_job") or {}
+        if sub.get("status") != "grading" and not job.get("running"):
+            continue
+        started = job.get("started_at")
+        stale = True
+        if started:
+            try:
+                stale = now_vn() - parse_dt(started) > timedelta(minutes=minutes)
+            except Exception:  # noqa: BLE001
+                stale = True
+        if not stale:
+            continue
+        patch = {"grade_job": {**job, "running": False, "error": "Quá thời gian — đã hủy, hãy chấm lại"}}
+        if sub.get("status") == "grading":
+            patch["status"] = job.get("prev_status") or "submitted"
+        store.patch("submissions", sub["id"], patch)
+        n += 1
+    audit.log(store, actor, "reset_stuck_grading", "submissions", note=f"Đặt lại {n} hồ sơ chấm treo")
+    return n
+
+
+# ---------- Nhắc hạn 24 giờ ----------
 def send_reminders(store) -> int:
     sent = 0
     for user in store.find("users", role=ROLE_LECTURER):

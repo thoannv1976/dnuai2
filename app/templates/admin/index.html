@@ -8,6 +8,7 @@
 {% if q.get('published') %}<div class="bg-emerald-50 border border-emerald-200 rounded-lg p-3 mb-4 text-sm">Đã công bố {{ q.get('published') }} hồ sơ và gửi email kết quả.</div>{% endif %}
 {% if q.get('reminded') %}<div class="bg-emerald-50 border border-emerald-200 rounded-lg p-3 mb-4 text-sm">Đã gửi {{ q.get('reminded') }} email nhắc hạn.</div>{% endif %}
 {% if q.get('unlocked') is not none %}<div class="bg-emerald-50 border border-emerald-200 rounded-lg p-3 mb-4 text-sm">Đã mở khóa {{ q.get('unlocked') }} hồ sơ — giảng viên có thể sửa/nộp lại đến hạn mới.</div>{% endif %}
+{% if q.get('reset_grading') is not none %}<div class="bg-emerald-50 border border-emerald-200 rounded-lg p-3 mb-4 text-sm">Đã đặt lại {{ q.get('reset_grading') }} hồ sơ bị kẹt "đang chấm" — nay có thể bấm chấm lại.</div>{% endif %}
 
 <div class="grid sm:grid-cols-4 gap-4 mb-6">
   <div class="bg-white rounded-xl shadow p-4 text-center">
@@ -65,6 +66,13 @@
         <b>“Chấm tự động hồ sơ này”</b> (mỗi tiêu chí 2 lượt độc lập, lệch &gt;15% chấm lượt 3 lấy trung vị).
         <div class="mt-1 text-xs text-slate-500">Chấm theo từng bài để kiểm soát tiến độ và chi phí — không chấm hàng loạt tự động.
           Theo dõi token/chi phí tại <a href="/admin/ai-usage" class="text-orange-700 hover:underline">Chi phí AI</a>.</div>
+        <div class="mt-2">
+          <form method="post" action="/admin/reset-grading" class="inline"
+                onsubmit="return confirm('Đặt lại các hồ sơ bị kẹt ở trạng thái \'đang chấm\' quá lâu (trên 15 phút) để chấm lại?')">
+            <button class="bg-amber-600 text-white rounded px-3 py-1 text-xs">↺ Đặt lại hồ sơ chấm bị treo</button>
+          </form>
+          <span class="text-xs text-slate-500 ml-1">Dùng khi có bài cứ hiện "đang chấm" mãi không xong.</span>
+        </div>
       </li>
       <li><b>Hội đồng điều chỉnh & phê duyệt</b> tại <a href="/council" class="text-orange-700 hover:underline">trang thẩm định</a>
         (hồ sơ ≥85 điểm hoặc bất thường minh chứng: thẩm định bắt buộc)</li>

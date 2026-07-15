@@ -13,7 +13,9 @@ from app.config import ROLE_ADMIN, ROLE_COUNCIL, ROLE_LECTURER, get_settings, no
 from app.rubric import get_rubric, load_rubric_seed, reload_rubric
 from app.security import hash_password
 from app.services import audit
-from app.services.ops import get_timeline, lock_all, publish_all, send_reminders, unlock_all
+from app.services.ops import (
+    get_timeline, lock_all, publish_all, reset_stuck_grading, send_reminders, unlock_all,
+)
 
 router = APIRouter(prefix="/admin")
 admin_dep = Depends(require_role(ROLE_ADMIN))
@@ -121,6 +123,13 @@ def unlock(request: Request, user: dict = admin_dep):
     """Mở khóa hồ sơ đã khóa để giảng viên nộp/sửa lại (dùng khi gia hạn nộp bài)."""
     n = unlock_all(request.app.state.store, user)
     return RedirectResponse(f"/admin?unlocked={n}", status_code=303)
+
+
+@router.post("/reset-grading")
+def reset_grading(request: Request, user: dict = admin_dep):
+    """Đặt lại các hồ sơ kẹt ở 'đang chấm' quá lâu (Cloud Run cắt CPU) để chấm lại."""
+    n = reset_stuck_grading(request.app.state.store, user)
+    return RedirectResponse(f"/admin?reset_grading={n}", status_code=303)
 
 
 @router.post("/remind")

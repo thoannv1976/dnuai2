@@ -33,7 +33,9 @@ def create_app() -> FastAPI:
     )
     app.state.templates = templates
 
-    app.mount("/static", StaticFiles(directory=str(settings.base_dir / "app" / "static")), name="static")
+    static_dir = settings.base_dir / "app" / "static"
+    static_dir.mkdir(parents=True, exist_ok=True)  # thư mục rỗng không được git/Docker giữ → tạo nếu thiếu
+    app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
     app.include_router(auth.router)
     app.include_router(lecturer.router)

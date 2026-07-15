@@ -12,7 +12,7 @@ from app.rubric import get_rubric
 from app.services import audit
 from app.services.grading.engine import grade_submission
 from app.services.grading.graders import create_grader
-from app.services.ops import approve_submission, part_totals_final
+from app.services.ops import approve_submission, grade_job_stale, part_totals_final
 
 router = APIRouter(prefix="/council")
 council_dep = Depends(require_role(ROLE_COUNCIL, ROLE_ADMIN))
@@ -90,12 +90,17 @@ def grade_one(sid: str, request: Request, user: dict = council_dep):
         raise HTTPException(404)
     if sub.get("status") in ("approved", "published"):
         raise HTTPException(400, "Hồ sơ đã được phê duyệt/công bố — không thể chấm lại.")
-    if (sub.get("grade_job") or {}).get("running"):
+    job = sub.get("grade_job") or {}
+    # Đang chấm thật sự thì chặn; nhưng job 'treo' quá lâu (Cloud Run cắt CPU) thì cho chấm lại.
+    if job.get("running") and not grade_job_stale(job):
         raise HTTPException(400, "Hồ sơ này đang được chấm")
     keep_status = sub.get("status") in ("draft", "submitted")  # trước hạn → giữ trạng thái
+    prev_status = sub.get("status")
+    if prev_status == "grading":  # đang kẹt/chấm lại → lấy trạng thái gốc từ job cũ
+        prev_status = job.get("prev_status") or "submitted"
     grader = create_grader(get_settings(), store)
     store.patch("submissions", sid, {"grade_job": {
-        "running": True, "started_at": now_vn().isoformat(),
+        "running": True, "started_at": now_vn().isoformat(), "prev_status": prev_status,
         "by": user["email"], "grader": grader.name, "error": None,
     }})
     audit.log(store, user, "grade_one", f"submissions/{sid}",

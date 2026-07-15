@@ -35,7 +35,8 @@ gcloud run services describe "$SERVICE" --region "$REGION" >/dev/null 2>&1 \
 say "Cập nhật dịch vụ '$SERVICE' (dự án $PROJECT_ID, vùng $REGION)..."
 warn "Giữ nguyên toàn bộ dữ liệu, biến môi trường và secret hiện có."
 # Không truyền --set-env-vars/--set-secrets → Cloud Run giữ nguyên cấu hình cũ.
-gcloud run deploy "$SERVICE" --source . --region "$REGION" --quiet
+# --no-cpu-throttling: cấp CPU liên tục để tiến trình chấm nền chạy xong (tránh treo "đang chấm").
+gcloud run deploy "$SERVICE" --source . --region "$REGION" --no-cpu-throttling --quiet
 
 URL="$(gcloud run services describe "$SERVICE" --region "$REGION" --format='value(status.url)')"
 echo
